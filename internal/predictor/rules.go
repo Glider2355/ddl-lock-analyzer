@@ -59,7 +59,8 @@ func defaultRules() []PredictionRule {
 			},
 		},
 		// ADD COLUMN (VIRTUAL generated — partitioned table)
-		// MySQL docs: INPLACE for partitioned tables, INSTANT for non-partitioned tables
+		// MySQL docs: "Adding a VIRTUAL is not an in-place operation for partitioned tables."
+		// Neither INSTANT nor INPLACE is available — falls back to COPY.
 		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 		{
 			ActionType:  meta.ActionAddColumn,
@@ -67,10 +68,14 @@ func defaultRules() []PredictionRule {
 			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
 				return a.Detail.GeneratedType == "VIRTUAL" && tm != nil && tm.IsPartitioned
 			},
-			Algorithm:    meta.AlgorithmInplace,
-			Lock:         meta.LockNone,
-			TableRebuild: false,
-			Notes:        []string{"VIRTUAL generated column on partitioned table requires ALGORITHM=INPLACE"},
+			Algorithm:    meta.AlgorithmCopy,
+			Lock:         meta.LockShared,
+			TableRebuild: true,
+			Warnings: []string{
+				"VIRTUAL generated column on partitioned table requires ALGORITHM=COPY",
+				"SHARED lock — DML writes blocked during operation",
+				"Table rebuild required",
+			},
 		},
 		// ADD COLUMN (VIRTUAL generated — non-partitioned)
 		// MySQL docs: INSTANT by default for non-partitioned tables
@@ -167,6 +172,33 @@ func defaultRules() []PredictionRule {
 			TableRebuild: true,
 			Notes:        []string{"Dropping STORED generated column requires table rebuild"},
 			Warnings:     []string{"Table rebuild required — may take significant time for large tables"},
+		},
+		// DROP COLUMN (VIRTUAL generated — partitioned table)
+		// MySQL docs: "Dropping a VIRTUAL column can be performed instantly or in place for non-partitioned tables."
+		// For partitioned tables, neither INSTANT nor INPLACE is available — falls back to COPY.
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+		{
+			ActionType:  meta.ActionDropColumn,
+			Description: "DROP COLUMN (VIRTUAL generated, partitioned table)",
+			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
+				if tm == nil || !tm.IsPartitioned {
+					return false
+				}
+				for _, col := range tm.Columns {
+					if strings.EqualFold(col.Name, a.Detail.ColumnName) {
+						return strings.Contains(strings.ToUpper(col.Extra), "VIRTUAL GENERATED")
+					}
+				}
+				return false
+			},
+			Algorithm:    meta.AlgorithmCopy,
+			Lock:         meta.LockShared,
+			TableRebuild: true,
+			Warnings: []string{
+				"VIRTUAL generated column on partitioned table requires ALGORITHM=COPY",
+				"SHARED lock — DML writes blocked during operation",
+				"Table rebuild required",
+			},
 		},
 		// DROP COLUMN (VIRTUAL generated — non-partitioned)
 		// MySQL docs: INSTANT for non-partitioned tables
@@ -1055,27 +1087,31 @@ func defaultRules() []PredictionRule {
 			Notes:        []string{"Partition repair operation"},
 		},
 		// DISCARD PARTITION TABLESPACE
-		// MySQL docs: only ALGORITHM=DEFAULT, LOCK=DEFAULT, no concurrent DML
+		// MySQL docs: Instant=No, In Place=No, only ALGORITHM=DEFAULT, LOCK=DEFAULT permitted
+		// No online DDL support — neither INSTANT nor INPLACE is available
 		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 		{
 			ActionType:   meta.ActionDiscardPartitionTablespace,
 			Description:  "DISCARD PARTITION TABLESPACE",
 			Condition:    alwaysMatch,
-			Algorithm:    meta.AlgorithmInplace,
+			Algorithm:    meta.AlgorithmCopy,
 			Lock:         meta.LockExclusive,
 			TableRebuild: false,
+			Notes:        []string{"Only ALGORITHM=DEFAULT and LOCK=DEFAULT are permitted by MySQL"},
 			Warnings:     []string{"EXCLUSIVE lock — no concurrent read or write access during tablespace discard"},
 		},
 		// IMPORT PARTITION TABLESPACE
-		// MySQL docs: only ALGORITHM=DEFAULT, LOCK=DEFAULT, no concurrent DML
+		// MySQL docs: Instant=No, In Place=No, only ALGORITHM=DEFAULT, LOCK=DEFAULT permitted
+		// No online DDL support — neither INSTANT nor INPLACE is available
 		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 		{
 			ActionType:   meta.ActionImportPartitionTablespace,
 			Description:  "IMPORT PARTITION TABLESPACE",
 			Condition:    alwaysMatch,
-			Algorithm:    meta.AlgorithmInplace,
+			Algorithm:    meta.AlgorithmCopy,
 			Lock:         meta.LockExclusive,
 			TableRebuild: false,
+			Notes:        []string{"Only ALGORITHM=DEFAULT and LOCK=DEFAULT are permitted by MySQL"},
 			Warnings:     []string{"EXCLUSIVE lock — no concurrent read or write access during tablespace import"},
 		},
 	}

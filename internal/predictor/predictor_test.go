@@ -158,8 +158,8 @@ func TestPredictAddColumnVirtualGenerated(t *testing.T) {
 	}
 }
 
-// TestPredictAddColumnVirtualGeneratedPartitioned — VIRTUAL生成カラム追加（パーティション）はINPLACE
-// MySQL docs: Add VIRTUAL column on partitioned table → INPLACE (not INSTANT)
+// TestPredictAddColumnVirtualGeneratedPartitioned — VIRTUAL生成カラム追加（パーティション）はCOPY
+// MySQL docs: "Adding a VIRTUAL is not an in-place operation for partitioned tables." → COPY
 // https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 func TestPredictAddColumnVirtualGeneratedPartitioned(t *testing.T) {
 	p := New()
@@ -177,8 +177,14 @@ func TestPredictAddColumnVirtualGeneratedPartitioned(t *testing.T) {
 		PartitionType: "RANGE",
 	}
 	pred := p.Predict(action, tableMeta)
-	if pred.Algorithm != meta.AlgorithmInplace {
-		t.Errorf("パーティションテーブルではINPLACEであること: got %s", pred.Algorithm)
+	if pred.Algorithm != meta.AlgorithmCopy {
+		t.Errorf("パーティションテーブルではCOPYであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockShared {
+		t.Errorf("SHAREDロックであること: got %s", pred.Lock)
+	}
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること")
 	}
 }
 
