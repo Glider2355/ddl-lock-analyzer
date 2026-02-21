@@ -103,8 +103,19 @@ const (
 	ActionConvertCharset   AlterActionType = "CONVERT_CHARACTER_SET"
 	ActionChangeEngine     AlterActionType = "CHANGE_ENGINE"
 	ActionChangeRowFormat  AlterActionType = "CHANGE_ROW_FORMAT"
-	ActionAddPartition     AlterActionType = "ADD_PARTITION"
-	ActionDropPartition    AlterActionType = "DROP_PARTITION"
+	ActionAddPartition        AlterActionType = "ADD_PARTITION"
+	ActionDropPartition       AlterActionType = "DROP_PARTITION"
+	ActionAddSpatialIndex     AlterActionType = "ADD_SPATIAL_INDEX"
+	ActionChangeAutoIncrement AlterActionType = "CHANGE_AUTO_INCREMENT"
+	ActionChangeKeyBlockSize  AlterActionType = "CHANGE_KEY_BLOCK_SIZE"
+	ActionForceRebuild        AlterActionType = "FORCE_REBUILD"
+	ActionCoalescePartition   AlterActionType = "COALESCE_PARTITION"
+	ActionReorganizePartition AlterActionType = "REORGANIZE_PARTITION"
+	ActionTruncatePartition   AlterActionType = "TRUNCATE_PARTITION"
+	ActionRebuildPartition    AlterActionType = "REBUILD_PARTITION"
+	ActionRemovePartitioning  AlterActionType = "REMOVE_PARTITIONING"
+	ActionPartitionBy         AlterActionType = "PARTITION_BY"
+	ActionExchangePartition   AlterActionType = "EXCHANGE_PARTITION"
 )
 
 // ActionDetail はALTER操作の詳細情報を保持する。
@@ -124,6 +135,9 @@ type ActionDetail struct {
 	Engine         string   `json:"engine,omitempty"`
 	Charset        string   `json:"charset,omitempty"`
 	RowFormat      string   `json:"row_format,omitempty"`
+	// カラム属性
+	IsAutoIncrement bool   `json:"is_auto_increment,omitempty"`
+	GeneratedType   string `json:"generated_type,omitempty"` // "", "STORED", "VIRTUAL"
 	// FK詳細
 	RefTable   string   `json:"ref_table,omitempty"`
 	RefColumns []string `json:"ref_columns,omitempty"`

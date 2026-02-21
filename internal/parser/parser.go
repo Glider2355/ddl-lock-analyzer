@@ -98,6 +98,22 @@ func specToActions(spec *ast.AlterTableSpec) []meta.AlterAction {
 		return []meta.AlterAction{{Type: meta.ActionAddPartition}}
 	case ast.AlterTableDropPartition:
 		return []meta.AlterAction{{Type: meta.ActionDropPartition}}
+	case ast.AlterTableCoalescePartitions:
+		return []meta.AlterAction{{Type: meta.ActionCoalescePartition}}
+	case ast.AlterTableReorganizePartition:
+		return []meta.AlterAction{{Type: meta.ActionReorganizePartition}}
+	case ast.AlterTableTruncatePartition:
+		return []meta.AlterAction{{Type: meta.ActionTruncatePartition}}
+	case ast.AlterTableRebuildPartition:
+		return []meta.AlterAction{{Type: meta.ActionRebuildPartition}}
+	case ast.AlterTableRemovePartitioning:
+		return []meta.AlterAction{{Type: meta.ActionRemovePartitioning}}
+	case ast.AlterTablePartition:
+		return []meta.AlterAction{{Type: meta.ActionPartitionBy}}
+	case ast.AlterTableExchangePartition:
+		return []meta.AlterAction{{Type: meta.ActionExchangePartition}}
+	case ast.AlterTableForce:
+		return []meta.AlterAction{{Type: meta.ActionForceRebuild}}
 	default:
 		return nil
 	}
@@ -114,6 +130,8 @@ func handleAddColumns(spec *ast.AlterTableSpec) []meta.AlterAction {
 		detail.IsNullable = &nullable
 		detail.Position = positionString(spec.Position)
 		detail.DefaultValue = defaultValueString(col)
+		detail.IsAutoIncrement = hasAutoIncrement(col)
+		detail.GeneratedType = generatedColumnType(col)
 
 		actions = append(actions, meta.AlterAction{
 			Type:   meta.ActionAddColumn,
@@ -144,6 +162,8 @@ func handleModifyColumn(spec *ast.AlterTableSpec) []meta.AlterAction {
 	nullable := isNullable(col)
 	detail.IsNullable = &nullable
 	detail.Position = positionString(spec.Position)
+	detail.IsAutoIncrement = hasAutoIncrement(col)
+	detail.GeneratedType = generatedColumnType(col)
 	return []meta.AlterAction{{
 		Type:   meta.ActionModifyColumn,
 		Detail: detail,
@@ -163,6 +183,8 @@ func handleChangeColumn(spec *ast.AlterTableSpec) []meta.AlterAction {
 	nullable := isNullable(col)
 	detail.IsNullable = &nullable
 	detail.Position = positionString(spec.Position)
+	detail.IsAutoIncrement = hasAutoIncrement(col)
+	detail.GeneratedType = generatedColumnType(col)
 
 	return []meta.AlterAction{{Type: meta.ActionChangeColumn, Detail: detail}}
 }
@@ -333,6 +355,14 @@ func handleTableOptions(spec *ast.AlterTableSpec) []meta.AlterAction {
 				Type:   meta.ActionChangeRowFormat,
 				Detail: meta.ActionDetail{RowFormat: rowFormatString(opt.UintValue)},
 			})
+		case ast.TableOptionKeyBlockSize:
+			actions = append(actions, meta.AlterAction{
+				Type: meta.ActionChangeKeyBlockSize,
+			})
+		case ast.TableOptionAutoIncrement:
+			actions = append(actions, meta.AlterAction{
+				Type: meta.ActionChangeAutoIncrement,
+			})
 		}
 	}
 	return actions
@@ -389,6 +419,27 @@ func positionString(pos *ast.ColumnPosition) string {
 	default:
 		return ""
 	}
+}
+
+func hasAutoIncrement(col *ast.ColumnDef) bool {
+	for _, opt := range col.Options {
+		if opt.Tp == ast.ColumnOptionAutoIncrement {
+			return true
+		}
+	}
+	return false
+}
+
+func generatedColumnType(col *ast.ColumnDef) string {
+	for _, opt := range col.Options {
+		if opt.Tp == ast.ColumnOptionGenerated {
+			if opt.Stored {
+				return "STORED"
+			}
+			return "VIRTUAL"
+		}
+	}
+	return ""
 }
 
 func rowFormatString(v uint64) string {

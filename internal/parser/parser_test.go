@@ -323,3 +323,116 @@ func TestParseSchemaQualifiedTable(t *testing.T) {
 		t.Errorf("テーブルが'users'であること: got %q", ops[0].Table)
 	}
 }
+
+func TestParseAddColumnAutoIncrement(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if !action.Detail.IsAutoIncrement {
+		t.Error("AUTO_INCREMENTであること")
+	}
+	if action.Detail.IsNullable == nil || *action.Detail.IsNullable {
+		t.Error("NOT NULLであること")
+	}
+}
+
+func TestParseAddColumnGenerated(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Detail.GeneratedType != "STORED" {
+		t.Errorf("GeneratedTypeが'STORED'であること: got %q", action.Detail.GeneratedType)
+	}
+}
+
+func TestParseAddColumnVirtualGenerated(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) VIRTUAL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Detail.GeneratedType != "VIRTUAL" {
+		t.Errorf("GeneratedTypeが'VIRTUAL'であること: got %q", action.Detail.GeneratedType)
+	}
+}
+
+func TestParseForceRebuild(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users FORCE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionForceRebuild {
+		t.Errorf("アクションタイプがFORCE_REBUILDであること: got %s", action.Type)
+	}
+}
+
+func TestParseAutoIncrementValue(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users AUTO_INCREMENT=1000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionChangeAutoIncrement {
+		t.Errorf("アクションタイプがCHANGE_AUTO_INCREMENTであること: got %s", action.Type)
+	}
+}
+
+func TestParseKeyBlockSize(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users KEY_BLOCK_SIZE=8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionChangeKeyBlockSize {
+		t.Errorf("アクションタイプがCHANGE_KEY_BLOCK_SIZEであること: got %s", action.Type)
+	}
+}
+
+func TestParseRemovePartitioning(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users REMOVE PARTITIONING")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionRemovePartitioning {
+		t.Errorf("アクションタイプがREMOVE_PARTITIONINGであること: got %s", action.Type)
+	}
+}
+
+func TestParseTruncatePartition(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users TRUNCATE PARTITION p0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionTruncatePartition {
+		t.Errorf("アクションタイプがTRUNCATE_PARTITIONであること: got %s", action.Type)
+	}
+}
+
+func TestParseCoalescePartitions(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users COALESCE PARTITION 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionCoalescePartition {
+		t.Errorf("アクションタイプがCOALESCE_PARTITIONであること: got %s", action.Type)
+	}
+}
+
+func TestParseModifyColumnAutoIncrement(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if !action.Detail.IsAutoIncrement {
+		t.Error("AUTO_INCREMENTであること")
+	}
+}
