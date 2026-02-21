@@ -259,8 +259,8 @@ const (
 
 | 操作 | Algorithm | Lock | Table Rebuild | 備考 |
 |------|-----------|------|---------------|------|
-| ADD COLUMN (末尾) | INSTANT | NONE | No | MySQL 8.0.12+ |
-| ADD COLUMN (途中) | INSTANT | NONE | No | MySQL 8.0.29+ |
+| ADD COLUMN (trailing) | INSTANT | NONE | No | MySQL 8.0.12+ |
+| ADD COLUMN (non-trailing) | INSTANT | NONE | No | MySQL 8.0.29+ |
 | DROP COLUMN | INSTANT | NONE | No | MySQL 8.0.29+ |
 | RENAME COLUMN | INSTANT | NONE | No | |
 | ALTER COLUMN SET DEFAULT | INSTANT | NONE | No | メタデータのみ変更 |
@@ -328,7 +328,7 @@ DB 接続モードの場合、以下のヒューリスティクスで概算す�
 Table: mydb.users
 SQL:   ALTER TABLE users ADD COLUMN nickname VARCHAR(255) DEFAULT NULL
 
-  Operation     : ADD COLUMN (末尾, NULLABLE, with DEFAULT)
+  Operation     : ADD COLUMN (trailing, NULLABLE, with DEFAULT)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No
@@ -362,7 +362,7 @@ SQL:   ALTER TABLE users MODIFY COLUMN email VARCHAR(512) NOT NULL
 Table: mydb.orders
 SQL:   ALTER TABLE orders ADD COLUMN discount_rate DECIMAL(5,2)
 
-  Operation     : ADD COLUMN (末尾, NULLABLE)
+  Operation     : ADD COLUMN (trailing, NULLABLE)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No

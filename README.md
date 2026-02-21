@@ -53,7 +53,7 @@ ddl-lock-analyzer analyze \
 Table: mydb.users
 SQL:   ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(255)
 
-  Operation     : ADD COLUMN (末尾, NULLABLE)
+  Operation     : ADD COLUMN (trailing, NULLABLE)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No
@@ -97,7 +97,7 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
 Table: mydb.orders
 SQL:   ALTER TABLE `orders` ADD COLUMN `discount_rate` DECIMAL(5,2)
 
-  Operation     : ADD COLUMN (末尾, NULLABLE)
+  Operation     : ADD COLUMN (trailing, NULLABLE)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No
@@ -166,7 +166,7 @@ SQL:   ALTER TABLE `orders` ADD COLUMN `discount_rate` DECIMAL(5,2)
 
 | カテゴリ | 操作 | 想定 Algorithm |
 |----------|------|---------------|
-| カラム | ADD COLUMN (末尾/途中) | INSTANT |
+| カラム | ADD COLUMN (trailing/non-trailing) | INSTANT |
 | カラム | DROP COLUMN | INSTANT |
 | カラム | RENAME COLUMN | INSTANT |
 | カラム | SET/DROP DEFAULT | INSTANT |

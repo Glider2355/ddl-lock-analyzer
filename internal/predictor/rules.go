@@ -20,10 +20,10 @@ type PredictionRule struct {
 
 func defaultRules() []PredictionRule {
 	return []PredictionRule{
-		// ADD COLUMN (末尾, NULLABLE)
+		// ADD COLUMN (trailing, NULLABLE)
 		{
 			ActionType:  meta.ActionAddColumn,
-			Description: "ADD COLUMN (末尾, NULLABLE)",
+			Description: "ADD COLUMN (trailing, NULLABLE)",
 			Condition: func(a meta.AlterAction, _ *meta.TableMeta) bool {
 				return a.Detail.Position == "" && (a.Detail.IsNullable == nil || *a.Detail.IsNullable)
 			},
@@ -32,10 +32,10 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.12+)", "No table rebuild required", "DML operations are not blocked"},
 		},
-		// ADD COLUMN (途中/先頭, NULLABLE) — MySQL 8.0.29+
+		// ADD COLUMN (non-trailing, NULLABLE) — MySQL 8.0.29+
 		{
 			ActionType:  meta.ActionAddColumn,
-			Description: "ADD COLUMN (途中/先頭, NULLABLE)",
+			Description: "ADD COLUMN (non-trailing, NULLABLE)",
 			Condition: func(a meta.AlterAction, _ *meta.TableMeta) bool {
 				return a.Detail.Position != "" && (a.Detail.IsNullable == nil || *a.Detail.IsNullable)
 			},
@@ -44,7 +44,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.29+)", "No table rebuild required"},
 		},
-		// ADD COLUMN (NOT NULL、DEFAULTなし)
+		// ADD COLUMN (NOT NULL)
 		{
 			ActionType:  meta.ActionAddColumn,
 			Description: "ADD COLUMN (NOT NULL)",
@@ -97,7 +97,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"Metadata-only change"},
 		},
-		// MODIFY COLUMN (型変更)
+		// MODIFY COLUMN (type change)
 		{
 			ActionType:  meta.ActionModifyColumn,
 			Description: "MODIFY COLUMN (type change)",
@@ -145,7 +145,7 @@ func defaultRules() []PredictionRule {
 			Notes:        []string{"INPLACE algorithm with table rebuild (NULL → NOT NULL conversion)"},
 			Warnings:     []string{"Table rebuild required — data validation for NOT NULL constraint"},
 		},
-		// CHANGE COLUMN (リネーム + 型変更)
+		// CHANGE COLUMN (rename + type change)
 		{
 			ActionType:   meta.ActionChangeColumn,
 			Description:  "CHANGE COLUMN",
@@ -255,7 +255,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"Metadata-only change"},
 		},
-		// CHANGE ENGINE (同一エンジン)
+		// CHANGE ENGINE (same engine)
 		{
 			ActionType:  meta.ActionChangeEngine,
 			Description: "CHANGE ENGINE (same engine)",
@@ -270,7 +270,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: true,
 			Notes:        []string{"Same engine — table rebuild for defragmentation"},
 		},
-		// CHANGE ENGINE (異なるエンジン)
+		// CHANGE ENGINE (different engine)
 		{
 			ActionType:  meta.ActionChangeEngine,
 			Description: "CHANGE ENGINE (different engine)",

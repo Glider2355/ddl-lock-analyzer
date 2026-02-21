@@ -20,7 +20,7 @@ func TestTextReporterBasic(t *testing.T) {
 				Predictions: []predictor.Prediction{
 					{
 						ActionType:   meta.ActionAddColumn,
-						Description:  "ADD COLUMN (末尾, NULLABLE)",
+						Description:  "ADD COLUMN (trailing, NULLABLE)",
 						Algorithm:    meta.AlgorithmInstant,
 						Lock:         meta.LockNone,
 						TableRebuild: false,
