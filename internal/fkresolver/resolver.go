@@ -27,6 +27,28 @@ func NewResolver(provider MetaProvider, maxDepth int, fkChecks bool) *Resolver {
 	}
 }
 
+// resolveConfig は親/子方向の解決パラメータを定義する。
+type resolveConfig struct {
+	direction FKDirection
+	tableKey  func(fk meta.ForeignKeyMeta) string
+	appendTo  func(graph *FKGraph, rel FKRelation)
+	nextFKs   func(tm *meta.TableMeta) []meta.ForeignKeyMeta
+}
+
+var parentConfig = resolveConfig{
+	direction: FKDirectionParent,
+	tableKey:  func(fk meta.ForeignKeyMeta) string { return qualifiedName(fk.ReferencedSchema, fk.ReferencedTable) },
+	appendTo:  func(graph *FKGraph, rel FKRelation) { graph.Parents = append(graph.Parents, rel) },
+	nextFKs:   func(tm *meta.TableMeta) []meta.ForeignKeyMeta { return tm.ForeignKeys },
+}
+
+var childConfig = resolveConfig{
+	direction: FKDirectionChild,
+	tableKey:  func(fk meta.ForeignKeyMeta) string { return qualifiedName(fk.SourceSchema, fk.SourceTable) },
+	appendTo:  func(graph *FKGraph, rel FKRelation) { graph.Children = append(graph.Children, rel) },
+	nextFKs:   func(tm *meta.TableMeta) []meta.ForeignKeyMeta { return tm.ReferencedBy },
+}
+
 // Resolve は指定されたテーブルとアクションに対するFK依存関係グラフを構築する。
 func (r *Resolver) Resolve(schema, table string, actions []meta.AlterAction) (*FKGraph, error) {
 	graph := &FKGraph{
@@ -47,23 +69,23 @@ func (r *Resolver) Resolve(schema, table string, actions []meta.AlterAction) (*F
 
 	// 親方向: このテーブルのFKが参照するテーブル
 	for _, fk := range tableMeta.ForeignKeys {
-		r.resolveParent(graph, fk, actions, 1, visited)
+		r.resolveDirection(graph, fk, actions, 1, visited, parentConfig)
 	}
 
 	// 子方向: このテーブルを参照するテーブル
 	for _, fk := range tableMeta.ReferencedBy {
-		r.resolveChild(graph, fk, actions, 1, visited)
+		r.resolveDirection(graph, fk, actions, 1, visited, childConfig)
 	}
 
 	return graph, nil
 }
 
-func (r *Resolver) resolveParent(graph *FKGraph, fk meta.ForeignKeyMeta, actions []meta.AlterAction, depth int, visited map[string]bool) {
+func (r *Resolver) resolveDirection(graph *FKGraph, fk meta.ForeignKeyMeta, actions []meta.AlterAction, depth int, visited map[string]bool, cfg resolveConfig) {
 	if depth > r.maxDepth {
 		return
 	}
 
-	key := qualifiedName(fk.ReferencedSchema, fk.ReferencedTable)
+	key := cfg.tableKey(fk)
 	if visited[key] {
 		graph.Warnings = append(graph.Warnings,
 			fmt.Sprintf("Circular FK reference detected: %s (skipping)", key))
@@ -71,11 +93,11 @@ func (r *Resolver) resolveParent(graph *FKGraph, fk meta.ForeignKeyMeta, actions
 	}
 	visited[key] = true
 
-	impact := DetermineLockImpact(FKDirectionParent, actions, fk)
-	graph.Parents = append(graph.Parents, FKRelation{
+	impact := DetermineLockImpact(cfg.direction, actions, fk)
+	cfg.appendTo(graph, FKRelation{
 		Table:      key,
 		Constraint: fk,
-		Direction:  FKDirectionParent,
+		Direction:  cfg.direction,
 		Depth:      depth,
 		LockImpact: impact,
 	})
@@ -84,49 +106,14 @@ func (r *Resolver) resolveParent(graph *FKGraph, fk meta.ForeignKeyMeta, actions
 		return
 	}
 
-	// 再帰: 親テーブル自身のFK親を検索
-	parentMeta, err := r.provider.GetTableMeta(fk.ReferencedSchema, fk.ReferencedTable)
+	// 再帰: 関連テーブルの次のFK関係を検索
+	parts := splitQualifiedName(key)
+	nextMeta, err := r.provider.GetTableMeta(parts[0], parts[1])
 	if err != nil {
 		return
 	}
-	for _, parentFK := range parentMeta.ForeignKeys {
-		r.resolveParent(graph, parentFK, actions, depth+1, visited)
-	}
-}
-
-func (r *Resolver) resolveChild(graph *FKGraph, fk meta.ForeignKeyMeta, actions []meta.AlterAction, depth int, visited map[string]bool) {
-	if depth > r.maxDepth {
-		return
-	}
-
-	key := qualifiedName(fk.SourceSchema, fk.SourceTable)
-	if visited[key] {
-		graph.Warnings = append(graph.Warnings,
-			fmt.Sprintf("Circular FK reference detected: %s (skipping)", key))
-		return
-	}
-	visited[key] = true
-
-	impact := DetermineLockImpact(FKDirectionChild, actions, fk)
-	graph.Children = append(graph.Children, FKRelation{
-		Table:      key,
-		Constraint: fk,
-		Direction:  FKDirectionChild,
-		Depth:      depth,
-		LockImpact: impact,
-	})
-
-	if r.provider == nil {
-		return
-	}
-
-	// 再帰: 子テーブル自身のFK子を検索
-	childMeta, err := r.provider.GetTableMeta(fk.SourceSchema, fk.SourceTable)
-	if err != nil {
-		return
-	}
-	for _, childFK := range childMeta.ReferencedBy {
-		r.resolveChild(graph, childFK, actions, depth+1, visited)
+	for _, nextFK := range cfg.nextFKs(nextMeta) {
+		r.resolveDirection(graph, nextFK, actions, depth+1, visited, cfg)
 	}
 }
 
@@ -135,4 +122,15 @@ func qualifiedName(schema, table string) string {
 		return table
 	}
 	return schema + "." + table
+}
+
+// splitQualifiedName は "schema.table" を [schema, table] に分割する。
+// schema がない場合は ["", table] を返す。
+func splitQualifiedName(name string) [2]string {
+	for i, c := range name {
+		if c == '.' {
+			return [2]string{name[:i], name[i+1:]}
+		}
+	}
+	return [2]string{"", name}
 }

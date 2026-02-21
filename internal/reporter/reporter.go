@@ -50,3 +50,11 @@ func riskOrd(r meta.RiskLevel) int {
 		return 0
 	}
 }
+
+// FKLockTypeString はFKロックレベルを表示用文字列に変換する。
+func FKLockTypeString(level meta.LockLevel) string {
+	if level == meta.LockExclusive {
+		return "EXCLUSIVE"
+	}
+	return "SHARED_READ"
+}

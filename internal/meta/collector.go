@@ -169,44 +169,11 @@ func (c *DBCollector) fetchForeignKeys(tm *TableMeta) error {
 		WHERE kcu.TABLE_SCHEMA = ? AND kcu.TABLE_NAME = ?
 			AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
 		ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION`
-	rows, err := c.db.Query(query, tm.Schema, tm.Table)
+	fks, err := c.fetchFKRelations(query, tm.Schema, tm.Table)
 	if err != nil {
 		return fmt.Errorf("failed to query foreign keys: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
-
-	fkMap := make(map[string]*ForeignKeyMeta)
-	var fkOrder []string
-	for rows.Next() {
-		var name, srcSchema, srcTable, srcCol, refSchema, refTable, refCol, onDel, onUpd string
-		if err := rows.Scan(&name, &srcSchema, &srcTable, &srcCol,
-			&refSchema, &refTable, &refCol, &onDel, &onUpd); err != nil {
-			return fmt.Errorf("failed to scan FK: %w", err)
-		}
-		fk, ok := fkMap[name]
-		if !ok {
-			fk = &ForeignKeyMeta{
-				ConstraintName:   name,
-				SourceSchema:     srcSchema,
-				SourceTable:      srcTable,
-				ReferencedSchema: refSchema,
-				ReferencedTable:  refTable,
-				OnDelete:         onDel,
-				OnUpdate:         onUpd,
-			}
-			fkMap[name] = fk
-			fkOrder = append(fkOrder, name)
-		}
-		fk.SourceColumns = append(fk.SourceColumns, srcCol)
-		fk.ReferencedColumns = append(fk.ReferencedColumns, refCol)
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-
-	for _, name := range fkOrder {
-		tm.ForeignKeys = append(tm.ForeignKeys, *fkMap[name])
-	}
+	tm.ForeignKeys = fks
 	return nil
 }
 
@@ -220,9 +187,19 @@ func (c *DBCollector) fetchReferencedBy(tm *TableMeta) error {
 			AND kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
 		WHERE kcu.REFERENCED_TABLE_SCHEMA = ? AND kcu.REFERENCED_TABLE_NAME = ?
 		ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION`
-	rows, err := c.db.Query(query, tm.Schema, tm.Table)
+	fks, err := c.fetchFKRelations(query, tm.Schema, tm.Table)
 	if err != nil {
 		return fmt.Errorf("failed to query referenced_by: %w", err)
+	}
+	tm.ReferencedBy = fks
+	return nil
+}
+
+// fetchFKRelations は共通のFK取得ロジック。クエリとパラメータを受け取り、ForeignKeyMetaスライスを返す。
+func (c *DBCollector) fetchFKRelations(query string, args ...interface{}) ([]ForeignKeyMeta, error) {
+	rows, err := c.db.Query(query, args...)
+	if err != nil {
+		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -232,7 +209,7 @@ func (c *DBCollector) fetchReferencedBy(tm *TableMeta) error {
 		var name, srcSchema, srcTable, srcCol, refSchema, refTable, refCol, onDel, onUpd string
 		if err := rows.Scan(&name, &srcSchema, &srcTable, &srcCol,
 			&refSchema, &refTable, &refCol, &onDel, &onUpd); err != nil {
-			return fmt.Errorf("failed to scan referenced_by FK: %w", err)
+			return nil, err
 		}
 		fk, ok := fkMap[name]
 		if !ok {
@@ -252,13 +229,14 @@ func (c *DBCollector) fetchReferencedBy(tm *TableMeta) error {
 		fk.ReferencedColumns = append(fk.ReferencedColumns, refCol)
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 
+	result := make([]ForeignKeyMeta, 0, len(fkOrder))
 	for _, name := range fkOrder {
-		tm.ReferencedBy = append(tm.ReferencedBy, *fkMap[name])
+		result = append(result, *fkMap[name])
 	}
-	return nil
+	return result, nil
 }
 
 func (c *DBCollector) fetchPartitionInfo(tm *TableMeta) error {

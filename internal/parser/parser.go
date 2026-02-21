@@ -66,67 +66,50 @@ func extractSQL(stmt *ast.AlterTableStmt, rawSQL string) string {
 	return rawSQL
 }
 
+// simpleSpecActions は単純な1対1マッピング（specType → ActionType）。
+var simpleSpecActions = map[ast.AlterTableType]meta.AlterActionType{
+	ast.AlterTableDropPrimaryKey:               meta.ActionDropPrimaryKey,
+	ast.AlterTableAddPartitions:                meta.ActionAddPartition,
+	ast.AlterTableDropPartition:                meta.ActionDropPartition,
+	ast.AlterTableCoalescePartitions:           meta.ActionCoalescePartition,
+	ast.AlterTableReorganizePartition:          meta.ActionReorganizePartition,
+	ast.AlterTableTruncatePartition:            meta.ActionTruncatePartition,
+	ast.AlterTableRebuildPartition:             meta.ActionRebuildPartition,
+	ast.AlterTableRemovePartitioning:           meta.ActionRemovePartitioning,
+	ast.AlterTablePartition:                    meta.ActionPartitionBy,
+	ast.AlterTableExchangePartition:            meta.ActionExchangePartition,
+	ast.AlterTableForce:                        meta.ActionForceRebuild,
+	ast.AlterTableCheckPartitions:              meta.ActionCheckPartition,
+	ast.AlterTableOptimizePartition:            meta.ActionOptimizePartition,
+	ast.AlterTableRepairPartition:              meta.ActionRepairPartition,
+	ast.AlterTableDiscardPartitionTablespace:   meta.ActionDiscardPartitionTablespace,
+	ast.AlterTableImportPartitionTablespace:    meta.ActionImportPartitionTablespace,
+}
+
+// complexSpecHandlers はハンドラ関数が必要なケースのマッピング。
+var complexSpecHandlers = map[ast.AlterTableType]func(*ast.AlterTableSpec) []meta.AlterAction{
+	ast.AlterTableAddColumns:     handleAddColumns,
+	ast.AlterTableDropColumn:     handleDropColumn,
+	ast.AlterTableModifyColumn:   handleModifyColumn,
+	ast.AlterTableChangeColumn:   handleChangeColumn,
+	ast.AlterTableRenameColumn:   handleRenameColumn,
+	ast.AlterTableAlterColumn:    handleAlterColumn,
+	ast.AlterTableAddConstraint:  handleAddConstraint,
+	ast.AlterTableDropIndex:      handleDropIndex,
+	ast.AlterTableDropForeignKey: handleDropForeignKey,
+	ast.AlterTableRenameIndex:    handleRenameIndex,
+	ast.AlterTableRenameTable:    handleRenameTable,
+	ast.AlterTableOption:         handleTableOptions,
+}
+
 func specToActions(spec *ast.AlterTableSpec) []meta.AlterAction {
-	switch spec.Tp {
-	case ast.AlterTableAddColumns:
-		return handleAddColumns(spec)
-	case ast.AlterTableDropColumn:
-		return handleDropColumn(spec)
-	case ast.AlterTableModifyColumn:
-		return handleModifyColumn(spec)
-	case ast.AlterTableChangeColumn:
-		return handleChangeColumn(spec)
-	case ast.AlterTableRenameColumn:
-		return handleRenameColumn(spec)
-	case ast.AlterTableAlterColumn:
-		return handleAlterColumn(spec)
-	case ast.AlterTableAddConstraint:
-		return handleAddConstraint(spec)
-	case ast.AlterTableDropIndex:
-		return handleDropIndex(spec)
-	case ast.AlterTableDropPrimaryKey:
-		return []meta.AlterAction{{Type: meta.ActionDropPrimaryKey}}
-	case ast.AlterTableDropForeignKey:
-		return handleDropForeignKey(spec)
-	case ast.AlterTableRenameIndex:
-		return handleRenameIndex(spec)
-	case ast.AlterTableRenameTable:
-		return handleRenameTable(spec)
-	case ast.AlterTableOption:
-		return handleTableOptions(spec)
-	case ast.AlterTableAddPartitions:
-		return []meta.AlterAction{{Type: meta.ActionAddPartition}}
-	case ast.AlterTableDropPartition:
-		return []meta.AlterAction{{Type: meta.ActionDropPartition}}
-	case ast.AlterTableCoalescePartitions:
-		return []meta.AlterAction{{Type: meta.ActionCoalescePartition}}
-	case ast.AlterTableReorganizePartition:
-		return []meta.AlterAction{{Type: meta.ActionReorganizePartition}}
-	case ast.AlterTableTruncatePartition:
-		return []meta.AlterAction{{Type: meta.ActionTruncatePartition}}
-	case ast.AlterTableRebuildPartition:
-		return []meta.AlterAction{{Type: meta.ActionRebuildPartition}}
-	case ast.AlterTableRemovePartitioning:
-		return []meta.AlterAction{{Type: meta.ActionRemovePartitioning}}
-	case ast.AlterTablePartition:
-		return []meta.AlterAction{{Type: meta.ActionPartitionBy}}
-	case ast.AlterTableExchangePartition:
-		return []meta.AlterAction{{Type: meta.ActionExchangePartition}}
-	case ast.AlterTableForce:
-		return []meta.AlterAction{{Type: meta.ActionForceRebuild}}
-	case ast.AlterTableCheckPartitions:
-		return []meta.AlterAction{{Type: meta.ActionCheckPartition}}
-	case ast.AlterTableOptimizePartition:
-		return []meta.AlterAction{{Type: meta.ActionOptimizePartition}}
-	case ast.AlterTableRepairPartition:
-		return []meta.AlterAction{{Type: meta.ActionRepairPartition}}
-	case ast.AlterTableDiscardPartitionTablespace:
-		return []meta.AlterAction{{Type: meta.ActionDiscardPartitionTablespace}}
-	case ast.AlterTableImportPartitionTablespace:
-		return []meta.AlterAction{{Type: meta.ActionImportPartitionTablespace}}
-	default:
-		return nil
+	if actionType, ok := simpleSpecActions[spec.Tp]; ok {
+		return []meta.AlterAction{{Type: actionType}}
 	}
+	if handler, ok := complexSpecHandlers[spec.Tp]; ok {
+		return handler(spec)
+	}
+	return nil
 }
 
 func handleAddColumns(spec *ast.AlterTableSpec) []meta.AlterAction {

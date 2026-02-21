@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -55,9 +56,12 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 	}
 
 	// コレクターを初期化
-	collector, err := initCollector()
+	collector, db, err := initCollector()
 	if err != nil {
 		return err
+	}
+	if db != nil {
+		defer db.Close()
 	}
 
 	// レポートを構築
@@ -75,7 +79,10 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		if schema == "" {
 			schema = flagDatabase
 		}
-		tableMeta, _ := collector.GetTableMeta(schema, op.Table)
+		tableMeta, err := collector.GetTableMeta(schema, op.Table)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to get table metadata for %s.%s: %v\n", schema, op.Table, err)
+		}
 
 		// ロック動作を予測
 		predictions := pred.PredictAll(op, tableMeta)
@@ -84,7 +91,10 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		var fkGraph *fkresolver.FKGraph
 		fkProvider := &collectorAdapter{collector: collector}
 		resolver := fkresolver.NewResolver(fkProvider, 5, true)
-		fkGraph, _ = resolver.Resolve(schema, op.Table, op.Actions)
+		fkGraph, err = resolver.Resolve(schema, op.Table, op.Actions)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to resolve FK dependencies for %s.%s: %v\n", schema, op.Table, err)
+		}
 
 		analysis := reporter.AnalysisResult{
 			Table:       tableName,
@@ -121,21 +131,29 @@ func getSQLInput() (string, error) {
 	return "", fmt.Errorf("--sql must be specified")
 }
 
-func initCollector() (meta.Collector, error) {
+// initCollector はメタデータコレクターとDB接続を返す。
+// 呼び出し元はdb.Close()を担当する。
+func initCollector() (meta.Collector, *sql.DB, error) {
 	if flagUser == "" || flagDatabase == "" {
-		return nil, fmt.Errorf("--user and --database must be specified")
+		return nil, nil, fmt.Errorf("--user and --database must be specified")
 	}
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", flagUser, flagPassword, flagHost, flagPort, flagDatabase)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to MySQL: %w", err)
+		return nil, nil, fmt.Errorf("failed to connect to MySQL: %w", err)
 	}
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping MySQL: %w", err)
+		db.Close()
+		return nil, nil, fmt.Errorf("failed to ping MySQL: %w", err)
 	}
 
-	return meta.NewDBCollector(db, flagDatabase)
+	collector, err := meta.NewDBCollector(db, flagDatabase)
+	if err != nil {
+		db.Close()
+		return nil, nil, err
+	}
+	return collector, db, nil
 }
 
 // collectorAdapter は meta.Collector を fkresolver.MetaProvider に適合させるアダプター。

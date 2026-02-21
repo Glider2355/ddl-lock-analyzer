@@ -2,6 +2,7 @@ package fkresolver
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
@@ -30,27 +31,18 @@ func DetermineLockImpact(direction FKDirection, actions []meta.AlterAction, fk m
 		}
 	}
 
-	// デフォルトのMDL伝播
-	switch direction {
-	case FKDirectionParent:
+	// デフォルトのMDL伝播（PARENT/CHILDどちらも同じ構造）
+	if direction == FKDirectionParent || direction == FKDirectionChild {
 		return FKLockImpact{
 			MetadataLock: true,
 			LockLevel:    meta.LockShared,
 			Reason: fmt.Sprintf("FK: %s.%s → %s.%s",
-				fk.SourceTable, fkColumnsStr(fk.SourceColumns),
-				fk.ReferencedTable, fkColumnsStr(fk.ReferencedColumns)),
+				fk.SourceTable, strings.Join(fk.SourceColumns, ", "),
+				fk.ReferencedTable, strings.Join(fk.ReferencedColumns, ", ")),
 		}
-	case FKDirectionChild:
-		return FKLockImpact{
-			MetadataLock: true,
-			LockLevel:    meta.LockShared,
-			Reason: fmt.Sprintf("FK: %s.%s → %s.%s",
-				fk.SourceTable, fkColumnsStr(fk.SourceColumns),
-				fk.ReferencedTable, fkColumnsStr(fk.ReferencedColumns)),
-		}
-	default:
-		return FKLockImpact{}
 	}
+
+	return FKLockImpact{}
 }
 
 func isFKColumn(colName string, fk meta.ForeignKeyMeta) bool {
@@ -65,18 +57,4 @@ func isFKColumn(colName string, fk meta.ForeignKeyMeta) bool {
 		}
 	}
 	return false
-}
-
-func fkColumnsStr(cols []string) string {
-	if len(cols) == 1 {
-		return cols[0]
-	}
-	result := "("
-	for i, c := range cols {
-		if i > 0 {
-			result += ", "
-		}
-		result += c
-	}
-	return result + ")"
 }

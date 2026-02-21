@@ -79,21 +79,13 @@ func (r *TextReporter) renderFKPropagation(sb *strings.Builder, analysis *Analys
 
 	for _, rel := range graph.Parents {
 		prefix := depthPrefix(rel.Depth, "PARENT")
-		lockType := "SHARED_READ"
-		if rel.LockImpact.LockLevel == meta.LockExclusive {
-			lockType = "EXCLUSIVE"
-		}
 		fmt.Fprintf(sb, "    %-10s %-22s %-15s %s\n",
-			prefix, rel.Table, lockType, rel.LockImpact.Reason)
+			prefix, rel.Table, FKLockTypeString(rel.LockImpact.LockLevel), rel.LockImpact.Reason)
 	}
 	for _, rel := range graph.Children {
 		prefix := depthPrefix(rel.Depth, "CHILD")
-		lockType := "SHARED_READ"
-		if rel.LockImpact.LockLevel == meta.LockExclusive {
-			lockType = "EXCLUSIVE"
-		}
 		fmt.Fprintf(sb, "    %-10s %-22s %-15s %s\n",
-			prefix, rel.Table, lockType, rel.LockImpact.Reason)
+			prefix, rel.Table, FKLockTypeString(rel.LockImpact.LockLevel), rel.LockImpact.Reason)
 	}
 
 	if len(graph.Warnings) > 0 {

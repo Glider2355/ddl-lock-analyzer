@@ -87,17 +87,13 @@ func (r *JSONReporter) Render(report *Report) (string, error) {
 					TotalAffectedTables: analysis.FKGraph.TotalAffectedTables(),
 				}
 				for _, rel := range analysis.FKGraph.AllRelations() {
-					lockType := "SHARED_READ"
-					if rel.LockImpact.LockLevel == meta.LockExclusive {
-						lockType = "EXCLUSIVE"
-					}
 					fkp.Relations = append(fkp.Relations, jsonFKRelation{
 						Direction:         rel.Direction,
 						Table:             rel.Table,
 						Constraint:        rel.Constraint.ConstraintName,
 						Columns:           rel.Constraint.SourceColumns,
 						ReferencedColumns: rel.Constraint.ReferencedColumns,
-						LockType:          lockType,
+						LockType:          FKLockTypeString(rel.LockImpact.LockLevel),
 						Depth:             rel.Depth,
 					})
 				}
