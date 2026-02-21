@@ -114,6 +114,16 @@ func specToActions(spec *ast.AlterTableSpec) []meta.AlterAction {
 		return []meta.AlterAction{{Type: meta.ActionExchangePartition}}
 	case ast.AlterTableForce:
 		return []meta.AlterAction{{Type: meta.ActionForceRebuild}}
+	case ast.AlterTableCheckPartitions:
+		return []meta.AlterAction{{Type: meta.ActionCheckPartition}}
+	case ast.AlterTableOptimizePartition:
+		return []meta.AlterAction{{Type: meta.ActionOptimizePartition}}
+	case ast.AlterTableRepairPartition:
+		return []meta.AlterAction{{Type: meta.ActionRepairPartition}}
+	case ast.AlterTableDiscardPartitionTablespace:
+		return []meta.AlterAction{{Type: meta.ActionDiscardPartitionTablespace}}
+	case ast.AlterTableImportPartitionTablespace:
+		return []meta.AlterAction{{Type: meta.ActionImportPartitionTablespace}}
 	default:
 		return nil
 	}
@@ -346,10 +356,17 @@ func handleTableOptions(spec *ast.AlterTableSpec) []meta.AlterAction {
 				Detail: meta.ActionDetail{Engine: opt.StrValue},
 			})
 		case ast.TableOptionCharset:
-			actions = append(actions, meta.AlterAction{
-				Type:   meta.ActionConvertCharset,
-				Detail: meta.ActionDetail{Charset: opt.StrValue},
-			})
+			if opt.UintValue == ast.TableOptionCharsetWithConvertTo {
+				actions = append(actions, meta.AlterAction{
+					Type:   meta.ActionConvertCharset,
+					Detail: meta.ActionDetail{Charset: opt.StrValue},
+				})
+			} else {
+				actions = append(actions, meta.AlterAction{
+					Type:   meta.ActionSpecifyCharset,
+					Detail: meta.ActionDetail{Charset: opt.StrValue},
+				})
+			}
 		case ast.TableOptionRowFormat:
 			actions = append(actions, meta.AlterAction{
 				Type:   meta.ActionChangeRowFormat,
@@ -362,6 +379,14 @@ func handleTableOptions(spec *ast.AlterTableSpec) []meta.AlterAction {
 		case ast.TableOptionAutoIncrement:
 			actions = append(actions, meta.AlterAction{
 				Type: meta.ActionChangeAutoIncrement,
+			})
+		case ast.TableOptionStatsPersistent, ast.TableOptionStatsAutoRecalc, ast.TableOptionStatsSamplePages:
+			actions = append(actions, meta.AlterAction{
+				Type: meta.ActionSetTableStats,
+			})
+		case ast.TableOptionEncryption:
+			actions = append(actions, meta.AlterAction{
+				Type: meta.ActionTableEncryption,
 			})
 		}
 	}

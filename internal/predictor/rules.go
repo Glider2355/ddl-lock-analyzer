@@ -28,6 +28,7 @@ func defaultRules() []PredictionRule {
 
 		// ADD COLUMN (auto-increment)
 		// MySQL docs: concurrent DML is NOT permitted for auto-increment columns
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 		{
 			ActionType:  meta.ActionAddColumn,
 			Description: "ADD COLUMN (auto-increment)",
@@ -36,9 +37,9 @@ func defaultRules() []PredictionRule {
 			},
 			Algorithm:    meta.AlgorithmInplace,
 			Lock:         meta.LockShared,
-			TableRebuild: false,
+			TableRebuild: true,
 			Notes:        []string{"Auto-increment column requires ALGORITHM=INPLACE with LOCK=SHARED"},
-			Warnings:     []string{"SHARED lock — DML writes blocked during column addition"},
+			Warnings:     []string{"SHARED lock — DML writes blocked during column addition", "Table rebuild required — INPLACE ADD COLUMN with auto-increment"},
 		},
 		// ADD COLUMN (STORED generated)
 		// MySQL docs: only ALGORITHM=COPY, no concurrent DML
@@ -57,8 +58,23 @@ func defaultRules() []PredictionRule {
 				"Table rebuild required — server must evaluate expression for each row",
 			},
 		},
-		// ADD COLUMN (VIRTUAL generated)
+		// ADD COLUMN (VIRTUAL generated — partitioned table)
+		// MySQL docs: INPLACE for partitioned tables, INSTANT for non-partitioned tables
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+		{
+			ActionType:  meta.ActionAddColumn,
+			Description: "ADD COLUMN (VIRTUAL generated, partitioned table)",
+			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
+				return a.Detail.GeneratedType == "VIRTUAL" && tm != nil && tm.IsPartitioned
+			},
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"VIRTUAL generated column on partitioned table requires ALGORITHM=INPLACE"},
+		},
+		// ADD COLUMN (VIRTUAL generated — non-partitioned)
 		// MySQL docs: INSTANT by default for non-partitioned tables
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 		{
 			ActionType:  meta.ActionAddColumn,
 			Description: "ADD COLUMN (VIRTUAL generated)",
@@ -152,20 +168,75 @@ func defaultRules() []PredictionRule {
 			Notes:        []string{"Dropping STORED generated column requires table rebuild"},
 			Warnings:     []string{"Table rebuild required — may take significant time for large tables"},
 		},
-		// DROP COLUMN (regular or VIRTUAL generated)
+		// DROP COLUMN (VIRTUAL generated — non-partitioned)
+		// MySQL docs: INSTANT for non-partitioned tables
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+		{
+			ActionType:  meta.ActionDropColumn,
+			Description: "DROP COLUMN (VIRTUAL generated)",
+			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
+				if tm == nil {
+					return false
+				}
+				for _, col := range tm.Columns {
+					if strings.EqualFold(col.Name, a.Detail.ColumnName) {
+						return strings.Contains(strings.ToUpper(col.Extra), "VIRTUAL GENERATED")
+					}
+				}
+				return false
+			},
+			Algorithm:    meta.AlgorithmInstant,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"INSTANT algorithm for VIRTUAL generated column (MySQL 8.0+)"},
+		},
+		// DROP COLUMN (regular)
+		// MySQL docs: INSTANT available (8.0.29+), rebuilds table
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 		{
 			ActionType:   meta.ActionDropColumn,
 			Description:  "DROP COLUMN",
 			Condition:    alwaysMatch,
 			Algorithm:    meta.AlgorithmInstant,
 			Lock:         meta.LockNone,
-			TableRebuild: false,
-			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.29+)"},
+			TableRebuild: true,
+			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.29+)", "Existing rows retain dropped column data until rewritten"},
 		},
 
 		// ============================================================
 		// RENAME COLUMN
 		// ============================================================
+
+		// RENAME COLUMN (referenced by foreign key)
+		// MySQL docs: renaming a column referenced by FK requires INPLACE, not INSTANT
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+		{
+			ActionType:  meta.ActionRenameColumn,
+			Description: "RENAME COLUMN (referenced by foreign key)",
+			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
+				if tm == nil {
+					return false
+				}
+				colName := a.Detail.OldColumnName
+				if colName == "" {
+					colName = a.Detail.ColumnName
+				}
+				for _, fk := range tm.ReferencedBy {
+					for _, refCol := range fk.ReferencedColumns {
+						if strings.EqualFold(refCol, colName) {
+							return true
+						}
+					}
+				}
+				return false
+			},
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"Column referenced by foreign key — requires ALGORITHM=INPLACE (INSTANT not available)"},
+		},
+		// RENAME COLUMN (regular)
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 		{
 			ActionType:   meta.ActionRenameColumn,
 			Description:  "RENAME COLUMN",
@@ -173,10 +244,7 @@ func defaultRules() []PredictionRule {
 			Algorithm:    meta.AlgorithmInstant,
 			Lock:         meta.LockNone,
 			TableRebuild: false,
-			Notes: []string{
-				"INSTANT algorithm available (MySQL 8.0.28+)",
-				"Renaming a column referenced by a foreign key from another table requires ALGORITHM=INPLACE",
-			},
+			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.28+)"},
 		},
 
 		// ============================================================
@@ -730,8 +798,28 @@ func defaultRules() []PredictionRule {
 		// PARTITION operations
 		// ============================================================
 
+		// ADD PARTITION (HASH/KEY — requires data redistribution)
+		// MySQL docs: INPLACE, no concurrent DML, LOCK=SHARED minimum
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:  meta.ActionAddPartition,
+			Description: "ADD PARTITION (HASH/KEY)",
+			Condition: func(_ meta.AlterAction, tm *meta.TableMeta) bool {
+				if tm == nil {
+					return false
+				}
+				pt := strings.ToUpper(tm.PartitionType)
+				return pt == "HASH" || pt == "KEY" || pt == "LINEAR HASH" || pt == "LINEAR KEY"
+			},
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockShared,
+			TableRebuild: false,
+			Notes:        []string{"HASH/KEY partition — data is copied between partitions"},
+			Warnings:     []string{"SHARED lock — DML writes blocked during partition addition"},
+		},
 		// ADD PARTITION (RANGE/LIST — the common case)
 		// MySQL docs: INPLACE, concurrent DML permitted, LOCK=NONE allowed
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 		{
 			ActionType:   meta.ActionAddPartition,
 			Description:  "ADD PARTITION",
@@ -744,8 +832,28 @@ func defaultRules() []PredictionRule {
 				"For HASH/KEY partitions: data is copied between partitions and requires LOCK=SHARED",
 			},
 		},
-		// DROP PARTITION
+		// DROP PARTITION (HASH/KEY — requires data redistribution)
+		// MySQL docs: INPLACE, no concurrent DML, LOCK=SHARED minimum
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:  meta.ActionDropPartition,
+			Description: "DROP PARTITION (HASH/KEY)",
+			Condition: func(_ meta.AlterAction, tm *meta.TableMeta) bool {
+				if tm == nil {
+					return false
+				}
+				pt := strings.ToUpper(tm.PartitionType)
+				return pt == "HASH" || pt == "KEY" || pt == "LINEAR HASH" || pt == "LINEAR KEY"
+			},
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockShared,
+			TableRebuild: false,
+			Notes:        []string{"HASH/KEY partition — data is redistributed between remaining partitions"},
+			Warnings:     []string{"SHARED lock — DML writes blocked during partition drop", "Data in the partition will be permanently deleted"},
+		},
+		// DROP PARTITION (RANGE/LIST)
 		// MySQL docs: INPLACE, concurrent DML permitted
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 		{
 			ActionType:   meta.ActionDropPartition,
 			Description:  "DROP PARTITION",
@@ -829,6 +937,7 @@ func defaultRules() []PredictionRule {
 		},
 		// REMOVE PARTITIONING
 		// MySQL docs: only ALGORITHM=COPY, no concurrent DML
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 		{
 			ActionType:   meta.ActionRemovePartitioning,
 			Description:  "REMOVE PARTITIONING",
@@ -840,6 +949,134 @@ func defaultRules() []PredictionRule {
 				"SHARED lock — DML writes blocked during operation",
 				"Table rebuild required — removing partitioning structure",
 			},
+		},
+
+		// ============================================================
+		// SPECIFY CHARACTER SET (ALTER TABLE ... CHARACTER SET = xxx)
+		// Different from CONVERT TO CHARACTER SET
+		// ============================================================
+
+		// SPECIFY CHARACTER SET
+		// MySQL docs: INPLACE, concurrent DML permitted, rebuilds if encoding differs
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+		{
+			ActionType:   meta.ActionSpecifyCharset,
+			Description:  "SPECIFY CHARACTER SET",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: true,
+			Notes: []string{
+				"Changes the default character set for the table (does not convert existing columns)",
+				"Rebuilds table if new character encoding differs from current",
+				"Different from CONVERT TO CHARACTER SET which converts all existing columns",
+			},
+		},
+
+		// ============================================================
+		// SET TABLE STATISTICS
+		// ============================================================
+
+		// SET TABLE STATISTICS (STATS_PERSISTENT, STATS_AUTO_RECALC, STATS_SAMPLE_PAGES)
+		// MySQL docs: INPLACE, concurrent DML permitted, no rebuild
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+		{
+			ActionType:   meta.ActionSetTableStats,
+			Description:  "SET TABLE STATISTICS",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"Metadata-only change — modifies persistent statistics settings"},
+		},
+
+		// ============================================================
+		// TABLE ENCRYPTION
+		// ============================================================
+
+		// TABLE ENCRYPTION (file-per-table)
+		// MySQL docs: COPY, no concurrent DML, rebuilds table
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+		{
+			ActionType:   meta.ActionTableEncryption,
+			Description:  "TABLE ENCRYPTION",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmCopy,
+			Lock:         meta.LockShared,
+			TableRebuild: true,
+			Warnings: []string{
+				"SHARED lock — DML writes blocked during encryption change",
+				"Table rebuild required — full table copy for encryption/decryption",
+			},
+		},
+
+		// ============================================================
+		// Additional PARTITION operations
+		// ============================================================
+
+		// CHECK PARTITION
+		// MySQL docs: INPLACE, concurrent DML permitted, no rebuild
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:   meta.ActionCheckPartition,
+			Description:  "CHECK PARTITION",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"Partition validation — read-only operation"},
+		},
+		// OPTIMIZE PARTITION
+		// MySQL docs: ALGORITHM and LOCK clauses ignored, rebuilds entire table
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:   meta.ActionOptimizePartition,
+			Description:  "OPTIMIZE PARTITION",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmCopy,
+			Lock:         meta.LockShared,
+			TableRebuild: true,
+			Notes:        []string{"Rebuilds entire table — ALGORITHM and LOCK clauses are ignored by MySQL"},
+			Warnings: []string{
+				"SHARED lock — DML writes blocked during optimization",
+				"Table rebuild required — entire table is rebuilt regardless of partition scope",
+			},
+		},
+		// REPAIR PARTITION
+		// MySQL docs: INPLACE, concurrent DML permitted, no rebuild
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:   meta.ActionRepairPartition,
+			Description:  "REPAIR PARTITION",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockNone,
+			TableRebuild: false,
+			Notes:        []string{"Partition repair operation"},
+		},
+		// DISCARD PARTITION TABLESPACE
+		// MySQL docs: only ALGORITHM=DEFAULT, LOCK=DEFAULT, no concurrent DML
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:   meta.ActionDiscardPartitionTablespace,
+			Description:  "DISCARD PARTITION TABLESPACE",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockExclusive,
+			TableRebuild: false,
+			Warnings:     []string{"EXCLUSIVE lock — no concurrent read or write access during tablespace discard"},
+		},
+		// IMPORT PARTITION TABLESPACE
+		// MySQL docs: only ALGORITHM=DEFAULT, LOCK=DEFAULT, no concurrent DML
+		// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+		{
+			ActionType:   meta.ActionImportPartitionTablespace,
+			Description:  "IMPORT PARTITION TABLESPACE",
+			Condition:    alwaysMatch,
+			Algorithm:    meta.AlgorithmInplace,
+			Lock:         meta.LockExclusive,
+			TableRebuild: false,
+			Warnings:     []string{"EXCLUSIVE lock — no concurrent read or write access during tablespace import"},
 		},
 	}
 }

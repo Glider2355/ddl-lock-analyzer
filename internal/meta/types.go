@@ -39,8 +39,10 @@ type TableMeta struct {
 	Columns      []ColumnMeta     `json:"columns"`
 	Indexes      []IndexMeta      `json:"indexes"`
 	ForeignKeys  []ForeignKeyMeta `json:"foreign_keys"`
-	ReferencedBy []ForeignKeyMeta `json:"referenced_by"`
-	MySQLVersion string           `json:"mysql_version"`
+	ReferencedBy  []ForeignKeyMeta `json:"referenced_by"`
+	MySQLVersion  string           `json:"mysql_version"`
+	IsPartitioned bool             `json:"is_partitioned"`
+	PartitionType string           `json:"partition_type,omitempty"` // RANGE, LIST, HASH, KEY, etc.
 }
 
 // ColumnMeta はテーブルカラムのメタデータを保持する。
@@ -115,7 +117,15 @@ const (
 	ActionRebuildPartition    AlterActionType = "REBUILD_PARTITION"
 	ActionRemovePartitioning  AlterActionType = "REMOVE_PARTITIONING"
 	ActionPartitionBy         AlterActionType = "PARTITION_BY"
-	ActionExchangePartition   AlterActionType = "EXCHANGE_PARTITION"
+	ActionExchangePartition          AlterActionType = "EXCHANGE_PARTITION"
+	ActionSpecifyCharset             AlterActionType = "SPECIFY_CHARACTER_SET"
+	ActionSetTableStats              AlterActionType = "SET_TABLE_STATISTICS"
+	ActionTableEncryption            AlterActionType = "TABLE_ENCRYPTION"
+	ActionCheckPartition             AlterActionType = "CHECK_PARTITION"
+	ActionOptimizePartition          AlterActionType = "OPTIMIZE_PARTITION"
+	ActionRepairPartition            AlterActionType = "REPAIR_PARTITION"
+	ActionDiscardPartitionTablespace AlterActionType = "DISCARD_PARTITION_TABLESPACE"
+	ActionImportPartitionTablespace  AlterActionType = "IMPORT_PARTITION_TABLESPACE"
 )
 
 // ActionDetail はALTER操作の詳細情報を保持する。

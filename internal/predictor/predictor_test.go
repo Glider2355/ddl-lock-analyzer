@@ -10,8 +10,14 @@ func boolPtr(b bool) *bool { return &b }
 
 // ============================================================
 // ADD COLUMN tests
+// MySQL公式ドキュメント:
+//   - カラム操作: https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+//   - 生成カラム: https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 // ============================================================
 
+// TestPredictAddColumnTail — 末尾へのNULLABLEカラム追加はINSTANT
+// MySQL docs: ADD COLUMN → INSTANT, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictAddColumnTail(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -34,6 +40,9 @@ func TestPredictAddColumnTail(t *testing.T) {
 	}
 }
 
+// TestPredictAddColumnFirst — FIRST指定のカラム追加はINSTANT (MySQL 8.0.29+)
+// MySQL docs: ADD COLUMN at any position → INSTANT (8.0.29+)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictAddColumnFirst(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -51,8 +60,10 @@ func TestPredictAddColumnFirst(t *testing.T) {
 	}
 }
 
+// TestPredictAddColumnNotNull — NOT NULLカラム追加はINSTANT (MySQL 8.0.12+)
+// MySQL docs: ADD COLUMN (NOT NULL with DEFAULT) → INSTANT
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictAddColumnNotNull(t *testing.T) {
-	// MySQL 8.0.12+: NOT NULL column with DEFAULT is INSTANT
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -74,8 +85,10 @@ func TestPredictAddColumnNotNull(t *testing.T) {
 	}
 }
 
+// TestPredictAddColumnAutoIncrement — AUTO_INCREMENTカラム追加はINPLACE/SHARED/テーブル再構築
+// MySQL docs: ADD COLUMN (auto-increment) → INPLACE, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictAddColumnAutoIncrement(t *testing.T) {
-	// AUTO_INCREMENT column requires SHARED lock
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -93,8 +106,14 @@ func TestPredictAddColumnAutoIncrement(t *testing.T) {
 	if pred.Lock != meta.LockShared {
 		t.Errorf("ロックがSHAREDであること: got %s", pred.Lock)
 	}
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること")
+	}
 }
 
+// TestPredictAddColumnStoredGenerated — STORED生成カラム追加はCOPY/SHARED
+// MySQL docs: Add STORED column → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 func TestPredictAddColumnStoredGenerated(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -117,6 +136,9 @@ func TestPredictAddColumnStoredGenerated(t *testing.T) {
 	}
 }
 
+// TestPredictAddColumnVirtualGenerated — VIRTUAL生成カラム追加（非パーティション）はINSTANT
+// MySQL docs: Add VIRTUAL column → INSTANT, Concurrent DML=Yes, Rebuilds Table=No (non-partitioned)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 func TestPredictAddColumnVirtualGenerated(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -136,10 +158,40 @@ func TestPredictAddColumnVirtualGenerated(t *testing.T) {
 	}
 }
 
+// TestPredictAddColumnVirtualGeneratedPartitioned — VIRTUAL生成カラム追加（パーティション）はINPLACE
+// MySQL docs: Add VIRTUAL column on partitioned table → INPLACE (not INSTANT)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+func TestPredictAddColumnVirtualGeneratedPartitioned(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{
+		Type: meta.ActionAddColumn,
+		Detail: meta.ActionDetail{
+			ColumnName:    "full_name",
+			ColumnType:    "VARCHAR(512)",
+			GeneratedType: "VIRTUAL",
+		},
+	}
+	tableMeta := &meta.TableMeta{
+		Engine:        "InnoDB",
+		IsPartitioned: true,
+		PartitionType: "RANGE",
+	}
+	pred := p.Predict(action, tableMeta)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("パーティションテーブルではINPLACEであること: got %s", pred.Algorithm)
+	}
+}
+
 // ============================================================
 // DROP COLUMN tests
+// MySQL公式ドキュメント:
+//   - カラム操作: https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+//   - 生成カラム: https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 // ============================================================
 
+// TestPredictDropColumn — 通常カラム削除はINSTANT/テーブル再構築あり
+// MySQL docs: Drop column → INSTANT, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictDropColumn(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -150,11 +202,14 @@ func TestPredictDropColumn(t *testing.T) {
 	if pred.Algorithm != meta.AlgorithmInstant {
 		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
 	}
-	if pred.RiskLevel != meta.RiskLow {
-		t.Errorf("リスクレベルがLOWであること: got %s", pred.RiskLevel)
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること（既存行のデータは遅延再構築）")
 	}
 }
 
+// TestPredictDropColumnStoredGenerated — STORED生成カラム削除はINPLACE/テーブル再構築
+// MySQL docs: Drop STORED column → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
 func TestPredictDropColumnStoredGenerated(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -176,12 +231,40 @@ func TestPredictDropColumnStoredGenerated(t *testing.T) {
 	}
 }
 
+// TestPredictDropColumnVirtualGenerated — VIRTUAL生成カラム削除はINSTANT/再構築なし
+// MySQL docs: Drop VIRTUAL column → INSTANT, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+func TestPredictDropColumnVirtualGenerated(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{
+		Type:   meta.ActionDropColumn,
+		Detail: meta.ActionDetail{ColumnName: "virt_col"},
+	}
+	tableMeta := &meta.TableMeta{
+		Engine: "InnoDB",
+		Columns: []meta.ColumnMeta{
+			{Name: "virt_col", ColumnType: "INT", Extra: "VIRTUAL GENERATED"},
+		},
+	}
+	pred := p.Predict(action, tableMeta)
+	if pred.Algorithm != meta.AlgorithmInstant {
+		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
+	}
+	if pred.TableRebuild {
+		t.Error("VIRTUAL生成カラム削除はテーブル再構築不要であること")
+	}
+}
+
 // ============================================================
 // MODIFY COLUMN tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 // ============================================================
 
+// TestPredictModifyColumnTypeChange — データ型変更はCOPY/SHARED
+// MySQL docs: Change column data type → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnTypeChange(t *testing.T) {
-	// Type change: COPY / SHARED (not EXCLUSIVE)
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionModifyColumn,
@@ -210,8 +293,10 @@ func TestPredictModifyColumnTypeChange(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnVarcharExtension — VARCHAR拡張（同一バイト境界内）はINPLACE/NONE
+// MySQL docs: Extend VARCHAR size → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnVarcharExtension(t *testing.T) {
-	// VARCHAR extension within same byte boundary → INPLACE / NONE
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionModifyColumn,
@@ -239,8 +324,10 @@ func TestPredictModifyColumnVarcharExtension(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnVarcharCrossBoundary — VARCHAR拡張（バイト境界超え）はCOPY
+// MySQL docs: VARCHAR 255→256 crosses length-byte boundary → COPY
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnVarcharCrossBoundary(t *testing.T) {
-	// VARCHAR(255) → VARCHAR(256) crosses byte boundary → COPY
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionModifyColumn,
@@ -265,6 +352,9 @@ func TestPredictModifyColumnVarcharCrossBoundary(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnNullToNotNull — NULL→NOT NULL変換はINPLACE/テーブル再構築
+// MySQL docs: Make column NOT NULL → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnNullToNotNull(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -293,6 +383,9 @@ func TestPredictModifyColumnNullToNotNull(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnNotNullToNull — NOT NULL→NULL変換はINPLACE/テーブル再構築
+// MySQL docs: Make column NULL → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnNotNullToNull(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -321,6 +414,9 @@ func TestPredictModifyColumnNotNullToNull(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnReorder — カラム並べ替えはINPLACE/テーブル再構築
+// MySQL docs: Reorder columns → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnReorder(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -350,6 +446,9 @@ func TestPredictModifyColumnReorder(t *testing.T) {
 	}
 }
 
+// TestPredictModifyColumnEnumExtension — ENUM末尾追加はINSTANT
+// MySQL docs: Modify ENUM/SET column → INSTANT, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictModifyColumnEnumExtension(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -377,8 +476,13 @@ func TestPredictModifyColumnEnumExtension(t *testing.T) {
 
 // ============================================================
 // CHANGE COLUMN tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 // ============================================================
 
+// TestPredictChangeColumnRenameOnly — リネームのみはINSTANT
+// MySQL docs: Rename column (same type) → INSTANT (8.0.28+), Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictChangeColumnRenameOnly(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -404,6 +508,9 @@ func TestPredictChangeColumnRenameOnly(t *testing.T) {
 	}
 }
 
+// TestPredictChangeColumnTypeChange — 型変更はCOPY/SHARED
+// MySQL docs: Change column data type → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictChangeColumnTypeChange(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -429,8 +536,10 @@ func TestPredictChangeColumnTypeChange(t *testing.T) {
 	}
 }
 
+// TestPredictChangeColumnNoMetadata — メタデータなしは保守的にCOPY
+// MySQL docs: Without metadata, assumes type change → COPY
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictChangeColumnNoMetadata(t *testing.T) {
-	// Without metadata, CHANGE COLUMN assumes type change (conservative)
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionChangeColumn,
@@ -451,8 +560,13 @@ func TestPredictChangeColumnNoMetadata(t *testing.T) {
 
 // ============================================================
 // INDEX tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 // ============================================================
 
+// TestPredictAddIndex — セカンダリインデックス追加はINPLACE/NONE
+// MySQL docs: Create/Add secondary index → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestPredictAddIndex(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -474,8 +588,10 @@ func TestPredictAddIndex(t *testing.T) {
 	}
 }
 
+// TestPredictAddFulltextIndexFirst — 最初のFULLTEXTインデックスはINPLACE/SHARED/テーブル再構築
+// MySQL docs: Add FULLTEXT index → INPLACE, Concurrent DML=No, Rebuilds Table=No (Yes if no FTS_DOC_ID)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestPredictAddFulltextIndexFirst(t *testing.T) {
-	// First FULLTEXT index may require table rebuild
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddFulltextIndex,
@@ -500,8 +616,10 @@ func TestPredictAddFulltextIndexFirst(t *testing.T) {
 	}
 }
 
+// TestPredictAddFulltextIndexSubsequent — 後続のFULLTEXTインデックスはテーブル再構築不要
+// MySQL docs: Add FULLTEXT index (subsequent) → INPLACE, Concurrent DML=No, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestPredictAddFulltextIndexSubsequent(t *testing.T) {
-	// Subsequent FULLTEXT index — no rebuild
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddFulltextIndex,
@@ -525,6 +643,9 @@ func TestPredictAddFulltextIndexSubsequent(t *testing.T) {
 	}
 }
 
+// TestPredictAddSpatialIndex — SPATIALインデックス追加はINPLACE/SHARED
+// MySQL docs: Add SPATIAL index → INPLACE, Concurrent DML=No, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestPredictAddSpatialIndex(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -541,8 +662,13 @@ func TestPredictAddSpatialIndex(t *testing.T) {
 
 // ============================================================
 // PRIMARY KEY tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
 // ============================================================
 
+// TestPredictAddPrimaryKey — 主キー追加はINPLACE/テーブル再構築
+// MySQL docs: Add primary key → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
 func TestPredictAddPrimaryKey(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -560,8 +686,10 @@ func TestPredictAddPrimaryKey(t *testing.T) {
 	}
 }
 
+// TestPredictDropPrimaryKey — 主キー削除はCOPY/SHARED
+// MySQL docs: Drop primary key → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
 func TestPredictDropPrimaryKey(t *testing.T) {
-	// DROP PRIMARY KEY: COPY / SHARED (not EXCLUSIVE)
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionDropPrimaryKey}
 	pred := p.Predict(action, nil)
@@ -578,10 +706,14 @@ func TestPredictDropPrimaryKey(t *testing.T) {
 
 // ============================================================
 // FOREIGN KEY tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
 // ============================================================
 
+// TestPredictAddForeignKey — 外部キー追加はCOPY/SHARED (foreign_key_checks=ON)
+// MySQL docs: Add foreign key → INPLACE (only if foreign_key_checks=OFF), otherwise COPY
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
 func TestPredictAddForeignKey(t *testing.T) {
-	// ADD FOREIGN KEY: COPY / SHARED (default, foreign_key_checks=ON)
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddForeignKey,
@@ -599,6 +731,9 @@ func TestPredictAddForeignKey(t *testing.T) {
 	}
 }
 
+// TestPredictDropForeignKey — 外部キー削除はINPLACE/NONE
+// MySQL docs: Drop foreign key → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
 func TestPredictDropForeignKey(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -617,9 +752,14 @@ func TestPredictDropForeignKey(t *testing.T) {
 }
 
 // ============================================================
-// TABLE operation tests
+// RENAME COLUMN tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 // ============================================================
 
+// TestPredictRenameColumn — カラムリネームはINSTANT
+// MySQL docs: Rename column → INSTANT (8.0.28+), Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictRenameColumn(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -638,6 +778,44 @@ func TestPredictRenameColumn(t *testing.T) {
 	}
 }
 
+// TestPredictRenameColumnReferencedByFK — FK参照カラムのリネームはINPLACE（INSTANTではない）
+// MySQL docs: Rename column referenced by FK → INPLACE (INSTANT not permitted)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+func TestPredictRenameColumnReferencedByFK(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{
+		Type: meta.ActionRenameColumn,
+		Detail: meta.ActionDetail{
+			ColumnName:    "user_id_new",
+			OldColumnName: "user_id",
+		},
+	}
+	tableMeta := &meta.TableMeta{
+		Engine: "InnoDB",
+		ReferencedBy: []meta.ForeignKeyMeta{
+			{
+				ConstraintName:    "fk_orders_user",
+				SourceTable:       "orders",
+				ReferencedTable:   "users",
+				ReferencedColumns: []string{"user_id"},
+			},
+		},
+	}
+	pred := p.Predict(action, tableMeta)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("FK参照カラムはINPLACEであること: got %s", pred.Algorithm)
+	}
+}
+
+// ============================================================
+// TABLE operation tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+// ============================================================
+
+// TestPredictChangeEngine — エンジン変更（異なるエンジン）はCOPY/SHARED
+// MySQL docs: Change storage engine (different) → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictChangeEngine(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -657,6 +835,9 @@ func TestPredictChangeEngine(t *testing.T) {
 	}
 }
 
+// TestPredictChangeEngineSame — 同一エンジン再指定（null rebuild）はINPLACE/NONE
+// MySQL docs: Null rebuild (ENGINE=InnoDB on InnoDB table) → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictChangeEngineSame(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -673,8 +854,10 @@ func TestPredictChangeEngineSame(t *testing.T) {
 	}
 }
 
+// TestPredictConvertCharset — CONVERT TO CHARACTER SETはINPLACE/SHARED
+// MySQL docs: Convert character set → INPLACE, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictConvertCharset(t *testing.T) {
-	// CONVERT CHARACTER SET: INPLACE / SHARED (not COPY/EXCLUSIVE)
 	p := New()
 	action := meta.AlterAction{
 		Type:   meta.ActionConvertCharset,
@@ -689,6 +872,30 @@ func TestPredictConvertCharset(t *testing.T) {
 	}
 }
 
+// TestPredictSpecifyCharset — Specify CHARACTER SET（CONVERT TOではない）はINPLACE/NONE
+// MySQL docs: Specify character set → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestPredictSpecifyCharset(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{
+		Type:   meta.ActionSpecifyCharset,
+		Detail: meta.ActionDetail{Charset: "utf8mb4"},
+	}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockNone {
+		t.Errorf("ロックがNONEであること（CONVERT TOと異なりDML許可）: got %s", pred.Lock)
+	}
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること")
+	}
+}
+
+// TestPredictChangeRowFormat — ROW_FORMAT変更はINPLACE/テーブル再構築
+// MySQL docs: Change ROW_FORMAT → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictChangeRowFormat(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{
@@ -704,6 +911,9 @@ func TestPredictChangeRowFormat(t *testing.T) {
 	}
 }
 
+// TestPredictChangeKeyBlockSize — KEY_BLOCK_SIZE変更はINPLACE/テーブル再構築
+// MySQL docs: Change KEY_BLOCK_SIZE → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictChangeKeyBlockSize(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionChangeKeyBlockSize}
@@ -716,6 +926,9 @@ func TestPredictChangeKeyBlockSize(t *testing.T) {
 	}
 }
 
+// TestPredictChangeAutoIncrement — AUTO_INCREMENT値変更はINPLACE/再構築なし
+// MySQL docs: Change auto-increment value → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestPredictChangeAutoIncrement(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionChangeAutoIncrement}
@@ -731,6 +944,9 @@ func TestPredictChangeAutoIncrement(t *testing.T) {
 	}
 }
 
+// TestPredictForceRebuild — ALTER TABLE ... FORCEはINPLACE/テーブル再構築
+// MySQL docs: Rebuild with FORCE → INPLACE, Concurrent DML=Yes, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestPredictForceRebuild(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionForceRebuild}
@@ -746,10 +962,54 @@ func TestPredictForceRebuild(t *testing.T) {
 	}
 }
 
+// TestPredictSetTableStats — テーブル統計設定はINPLACE/メタデータのみ
+// MySQL docs: Set persistent table statistics → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestPredictSetTableStats(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionSetTableStats}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockNone {
+		t.Errorf("ロックがNONEであること: got %s", pred.Lock)
+	}
+	if pred.TableRebuild {
+		t.Error("テーブル再構築が不要であること")
+	}
+}
+
+// TestPredictTableEncryption — テーブル暗号化はCOPY/SHARED
+// MySQL docs: Enable/disable file-per-table encryption → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestPredictTableEncryption(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionTableEncryption}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmCopy {
+		t.Errorf("アルゴリズムがCOPYであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockShared {
+		t.Errorf("ロックがSHAREDであること: got %s", pred.Lock)
+	}
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること")
+	}
+	if pred.RiskLevel != meta.RiskCritical {
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
+	}
+}
+
 // ============================================================
 // PARTITION operation tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 // ============================================================
 
+// TestPredictAddPartition — RANGE/LISTパーティション追加はINPLACE/NONE
+// MySQL docs: ADD PARTITION (RANGE/LIST) → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictAddPartition(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionAddPartition}
@@ -762,6 +1022,29 @@ func TestPredictAddPartition(t *testing.T) {
 	}
 }
 
+// TestPredictAddPartitionHash — HASH/KEYパーティション追加はINPLACE/SHARED
+// MySQL docs: ADD PARTITION (HASH/KEY) → INPLACE, LOCK=SHARED minimum (data redistribution)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictAddPartitionHash(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionAddPartition}
+	tableMeta := &meta.TableMeta{
+		Engine:        "InnoDB",
+		IsPartitioned: true,
+		PartitionType: "HASH",
+	}
+	pred := p.Predict(action, tableMeta)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockShared {
+		t.Errorf("HASH/KEYパーティションはSHAREDロックであること: got %s", pred.Lock)
+	}
+}
+
+// TestPredictDropPartition — RANGE/LISTパーティション削除はINPLACE/NONE
+// MySQL docs: DROP PARTITION (RANGE/LIST) → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictDropPartition(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionDropPartition}
@@ -774,6 +1057,26 @@ func TestPredictDropPartition(t *testing.T) {
 	}
 }
 
+// TestPredictDropPartitionKey — KEY パーティション削除はINPLACE/SHARED
+// MySQL docs: DROP PARTITION (HASH/KEY) → INPLACE, LOCK=SHARED minimum (data redistribution)
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictDropPartitionKey(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionDropPartition}
+	tableMeta := &meta.TableMeta{
+		Engine:        "InnoDB",
+		IsPartitioned: true,
+		PartitionType: "KEY",
+	}
+	pred := p.Predict(action, tableMeta)
+	if pred.Lock != meta.LockShared {
+		t.Errorf("KEY パーティションはSHAREDロックであること: got %s", pred.Lock)
+	}
+}
+
+// TestPredictCoalescePartition — パーティション統合はINPLACE/SHARED
+// MySQL docs: COALESCE PARTITION → INPLACE, Concurrent DML=No, LOCK=SHARED minimum
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictCoalescePartition(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionCoalescePartition}
@@ -786,6 +1089,9 @@ func TestPredictCoalescePartition(t *testing.T) {
 	}
 }
 
+// TestPredictReorganizePartition — パーティション再編成はINPLACE/SHARED
+// MySQL docs: REORGANIZE PARTITION → INPLACE, Concurrent DML=No, LOCK=SHARED minimum
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictReorganizePartition(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionReorganizePartition}
@@ -795,6 +1101,9 @@ func TestPredictReorganizePartition(t *testing.T) {
 	}
 }
 
+// TestPredictTruncatePartition — パーティションTRUNCATEはINPLACE/NONE
+// MySQL docs: TRUNCATE PARTITION → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictTruncatePartition(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionTruncatePartition}
@@ -804,6 +1113,9 @@ func TestPredictTruncatePartition(t *testing.T) {
 	}
 }
 
+// TestPredictRemovePartitioning — パーティション削除はCOPY/SHARED
+// MySQL docs: REMOVE PARTITIONING → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictRemovePartitioning(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionRemovePartitioning}
@@ -816,6 +1128,9 @@ func TestPredictRemovePartitioning(t *testing.T) {
 	}
 }
 
+// TestPredictPartitionBy — PARTITION BYはCOPY/SHARED
+// MySQL docs: PARTITION BY → COPY, Concurrent DML=No, Rebuilds Table=Yes
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
 func TestPredictPartitionBy(t *testing.T) {
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionPartitionBy}
@@ -825,6 +1140,90 @@ func TestPredictPartitionBy(t *testing.T) {
 	}
 	if pred.Lock != meta.LockShared {
 		t.Errorf("ロックがSHAREDであること: got %s", pred.Lock)
+	}
+}
+
+// TestPredictCheckPartition — CHECK PARTITIONはINPLACE/NONE
+// MySQL docs: CHECK PARTITION → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictCheckPartition(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionCheckPartition}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockNone {
+		t.Errorf("ロックがNONEであること: got %s", pred.Lock)
+	}
+	if pred.TableRebuild {
+		t.Error("テーブル再構築が不要であること")
+	}
+}
+
+// TestPredictOptimizePartition — OPTIMIZE PARTITIONはCOPY/SHARED/テーブル全体再構築
+// MySQL docs: OPTIMIZE PARTITION → rebuilds entire table, ALGORITHM/LOCK clauses ignored
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictOptimizePartition(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionOptimizePartition}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmCopy {
+		t.Errorf("アルゴリズムがCOPYであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockShared {
+		t.Errorf("ロックがSHAREDであること: got %s", pred.Lock)
+	}
+	if !pred.TableRebuild {
+		t.Error("テーブル再構築が必要であること")
+	}
+}
+
+// TestPredictRepairPartition — REPAIR PARTITIONはINPLACE/NONE
+// MySQL docs: REPAIR PARTITION → INPLACE, Concurrent DML=Yes, Rebuilds Table=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictRepairPartition(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionRepairPartition}
+	pred := p.Predict(action, nil)
+	if pred.Algorithm != meta.AlgorithmInplace {
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
+	}
+	if pred.Lock != meta.LockNone {
+		t.Errorf("ロックがNONEであること: got %s", pred.Lock)
+	}
+	if pred.TableRebuild {
+		t.Error("テーブル再構築が不要であること")
+	}
+}
+
+// TestPredictDiscardPartitionTablespace — DISCARD PARTITION TABLESPACEはEXCLUSIVEロック
+// MySQL docs: DISCARD PARTITION → only ALGORITHM=DEFAULT, LOCK=DEFAULT, Concurrent DML=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictDiscardPartitionTablespace(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionDiscardPartitionTablespace}
+	pred := p.Predict(action, nil)
+	if pred.Lock != meta.LockExclusive {
+		t.Errorf("ロックがEXCLUSIVEであること: got %s", pred.Lock)
+	}
+	if pred.RiskLevel != meta.RiskCritical {
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
+	}
+}
+
+// TestPredictImportPartitionTablespace — IMPORT PARTITION TABLESPACEはEXCLUSIVEロック
+// MySQL docs: IMPORT PARTITION → only ALGORITHM=DEFAULT, LOCK=DEFAULT, Concurrent DML=No
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestPredictImportPartitionTablespace(t *testing.T) {
+	p := New()
+	action := meta.AlterAction{Type: meta.ActionImportPartitionTablespace}
+	pred := p.Predict(action, nil)
+	if pred.Lock != meta.LockExclusive {
+		t.Errorf("ロックがEXCLUSIVEであること: got %s", pred.Lock)
+	}
+	if pred.RiskLevel != meta.RiskCritical {
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
 	}
 }
 

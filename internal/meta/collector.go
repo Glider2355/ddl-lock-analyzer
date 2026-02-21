@@ -62,6 +62,9 @@ func (c *DBCollector) GetTableMeta(schema, table string) (*TableMeta, error) {
 	if err := c.fetchReferencedBy(tm); err != nil {
 		return nil, err
 	}
+	if err := c.fetchPartitionInfo(tm); err != nil {
+		return nil, err
+	}
 
 	return tm, nil
 }
@@ -254,6 +257,27 @@ func (c *DBCollector) fetchReferencedBy(tm *TableMeta) error {
 
 	for _, name := range fkOrder {
 		tm.ReferencedBy = append(tm.ReferencedBy, *fkMap[name])
+	}
+	return nil
+}
+
+func (c *DBCollector) fetchPartitionInfo(tm *TableMeta) error {
+	query := `SELECT PARTITION_METHOD
+		FROM information_schema.PARTITIONS
+		WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
+			AND PARTITION_NAME IS NOT NULL
+		LIMIT 1`
+	var partMethod sql.NullString
+	err := c.db.QueryRow(query, tm.Schema, tm.Table).Scan(&partMethod)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to query partition info: %w", err)
+	}
+	if partMethod.Valid {
+		tm.IsPartitioned = true
+		tm.PartitionType = partMethod.String
 	}
 	return nil
 }

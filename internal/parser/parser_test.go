@@ -6,8 +6,15 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
+// ============================================================
+// ADD COLUMN parse tests
+// MySQL公式ドキュメント:
+//   https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseAddColumn — カラム追加のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseAddColumn(t *testing.T) {
-	// カラム追加のパースを検証
 	ops, err := Parse("ALTER TABLE users ADD COLUMN nickname VARCHAR(255)")
 	if err != nil {
 		t.Fatal(err)
@@ -30,8 +37,9 @@ func TestParseAddColumn(t *testing.T) {
 	}
 }
 
+// TestParseAddColumnFirst — FIRST指定のカラム追加を検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseAddColumnFirst(t *testing.T) {
-	// FIRST指定のカラム追加を検証
 	ops, err := Parse("ALTER TABLE users ADD COLUMN id INT FIRST")
 	if err != nil {
 		t.Fatal(err)
@@ -42,8 +50,9 @@ func TestParseAddColumnFirst(t *testing.T) {
 	}
 }
 
+// TestParseAddColumnAfter — AFTER指定のカラム追加を検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseAddColumnAfter(t *testing.T) {
-	// AFTER指定のカラム追加を検証
 	ops, err := Parse("ALTER TABLE users ADD COLUMN email VARCHAR(255) AFTER name")
 	if err != nil {
 		t.Fatal(err)
@@ -54,8 +63,56 @@ func TestParseAddColumnAfter(t *testing.T) {
 	}
 }
 
+// TestParseAddColumnAutoIncrement — AUTO_INCREMENTカラム追加を検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+func TestParseAddColumnAutoIncrement(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if !action.Detail.IsAutoIncrement {
+		t.Error("AUTO_INCREMENTであること")
+	}
+	if action.Detail.IsNullable == nil || *action.Detail.IsNullable {
+		t.Error("NOT NULLであること")
+	}
+}
+
+// TestParseAddColumnGenerated — STORED生成カラム追加を検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+func TestParseAddColumnGenerated(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Detail.GeneratedType != "STORED" {
+		t.Errorf("GeneratedTypeが'STORED'であること: got %q", action.Detail.GeneratedType)
+	}
+}
+
+// TestParseAddColumnVirtualGenerated — VIRTUAL生成カラム追加を検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-generated-column-operations
+func TestParseAddColumnVirtualGenerated(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) VIRTUAL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Detail.GeneratedType != "VIRTUAL" {
+		t.Errorf("GeneratedTypeが'VIRTUAL'であること: got %q", action.Detail.GeneratedType)
+	}
+}
+
+// ============================================================
+// DROP COLUMN parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseDropColumn — カラム削除のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseDropColumn(t *testing.T) {
-	// カラム削除のパースを検証
 	ops, err := Parse("ALTER TABLE users DROP COLUMN nickname")
 	if err != nil {
 		t.Fatal(err)
@@ -69,8 +126,14 @@ func TestParseDropColumn(t *testing.T) {
 	}
 }
 
+// ============================================================
+// MODIFY COLUMN parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseModifyColumn — カラム変更(MODIFY)のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseModifyColumn(t *testing.T) {
-	// カラム変更(MODIFY)のパースを検証
 	ops, err := Parse("ALTER TABLE users MODIFY COLUMN email VARCHAR(512) NOT NULL")
 	if err != nil {
 		t.Fatal(err)
@@ -84,8 +147,27 @@ func TestParseModifyColumn(t *testing.T) {
 	}
 }
 
+// TestParseModifyColumnAutoIncrement — MODIFY AUTO_INCREMENTのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+func TestParseModifyColumnAutoIncrement(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if !action.Detail.IsAutoIncrement {
+		t.Error("AUTO_INCREMENTであること")
+	}
+}
+
+// ============================================================
+// CHANGE COLUMN parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseChangeColumn — カラム変更(CHANGE)のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseChangeColumn(t *testing.T) {
-	// カラム変更(CHANGE)のパースを検証
 	ops, err := Parse("ALTER TABLE users CHANGE COLUMN name full_name VARCHAR(255)")
 	if err != nil {
 		t.Fatal(err)
@@ -102,8 +184,14 @@ func TestParseChangeColumn(t *testing.T) {
 	}
 }
 
+// ============================================================
+// RENAME COLUMN parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseRenameColumn — カラムリネームのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseRenameColumn(t *testing.T) {
-	// カラムリネームのパースを検証
 	ops, err := Parse("ALTER TABLE users RENAME COLUMN name TO full_name")
 	if err != nil {
 		t.Fatal(err)
@@ -114,8 +202,14 @@ func TestParseRenameColumn(t *testing.T) {
 	}
 }
 
+// ============================================================
+// ALTER COLUMN SET/DROP DEFAULT parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+// ============================================================
+
+// TestParseAlterColumnSetDefault — ALTER COLUMN SET DEFAULTのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseAlterColumnSetDefault(t *testing.T) {
-	// ALTER COLUMN SET DEFAULTのパースを検証
 	ops, err := Parse("ALTER TABLE users ALTER COLUMN status SET DEFAULT 'active'")
 	if err != nil {
 		t.Fatal(err)
@@ -126,8 +220,9 @@ func TestParseAlterColumnSetDefault(t *testing.T) {
 	}
 }
 
+// TestParseAlterColumnDropDefault — ALTER COLUMN DROP DEFAULTのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
 func TestParseAlterColumnDropDefault(t *testing.T) {
-	// ALTER COLUMN DROP DEFAULTのパースを検証
 	ops, err := Parse("ALTER TABLE users ALTER COLUMN status DROP DEFAULT")
 	if err != nil {
 		t.Fatal(err)
@@ -138,8 +233,14 @@ func TestParseAlterColumnDropDefault(t *testing.T) {
 	}
 }
 
+// ============================================================
+// INDEX parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
+// ============================================================
+
+// TestParseAddIndex — インデックス追加のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestParseAddIndex(t *testing.T) {
-	// インデックス追加のパースを検証
 	ops, err := Parse("ALTER TABLE users ADD INDEX idx_email (email)")
 	if err != nil {
 		t.Fatal(err)
@@ -153,8 +254,9 @@ func TestParseAddIndex(t *testing.T) {
 	}
 }
 
+// TestParseAddUniqueIndex — ユニークインデックス追加のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestParseAddUniqueIndex(t *testing.T) {
-	// ユニークインデックス追加のパースを検証
 	ops, err := Parse("ALTER TABLE users ADD UNIQUE INDEX idx_email (email)")
 	if err != nil {
 		t.Fatal(err)
@@ -165,8 +267,9 @@ func TestParseAddUniqueIndex(t *testing.T) {
 	}
 }
 
+// TestParseDropIndex — インデックス削除のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestParseDropIndex(t *testing.T) {
-	// インデックス削除のパースを検証
 	ops, err := Parse("ALTER TABLE users DROP INDEX idx_email")
 	if err != nil {
 		t.Fatal(err)
@@ -177,8 +280,9 @@ func TestParseDropIndex(t *testing.T) {
 	}
 }
 
+// TestParseRenameIndex — インデックスリネームのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-index-operations
 func TestParseRenameIndex(t *testing.T) {
-	// インデックスリネームのパースを検証
 	ops, err := Parse("ALTER TABLE users RENAME INDEX idx_old TO idx_new")
 	if err != nil {
 		t.Fatal(err)
@@ -192,8 +296,14 @@ func TestParseRenameIndex(t *testing.T) {
 	}
 }
 
+// ============================================================
+// PRIMARY KEY parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
+// ============================================================
+
+// TestParseAddPrimaryKey — 主キー追加のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
 func TestParseAddPrimaryKey(t *testing.T) {
-	// 主キー追加のパースを検証
 	ops, err := Parse("ALTER TABLE users ADD PRIMARY KEY (id)")
 	if err != nil {
 		t.Fatal(err)
@@ -204,8 +314,9 @@ func TestParseAddPrimaryKey(t *testing.T) {
 	}
 }
 
+// TestParseDropPrimaryKey — 主キー削除のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-primary-key-operations
 func TestParseDropPrimaryKey(t *testing.T) {
-	// 主キー削除のパースを検証
 	ops, err := Parse("ALTER TABLE users DROP PRIMARY KEY")
 	if err != nil {
 		t.Fatal(err)
@@ -216,8 +327,14 @@ func TestParseDropPrimaryKey(t *testing.T) {
 	}
 }
 
+// ============================================================
+// FOREIGN KEY parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
+// ============================================================
+
+// TestParseAddForeignKey — 外部キー追加のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
 func TestParseAddForeignKey(t *testing.T) {
-	// 外部キー追加のパースを検証
 	ops, err := Parse("ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)")
 	if err != nil {
 		t.Fatal(err)
@@ -231,8 +348,9 @@ func TestParseAddForeignKey(t *testing.T) {
 	}
 }
 
+// TestParseDropForeignKey — 外部キー削除のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-foreign-key-operations
 func TestParseDropForeignKey(t *testing.T) {
-	// 外部キー削除のパースを検証
 	ops, err := Parse("ALTER TABLE orders DROP FOREIGN KEY fk_user")
 	if err != nil {
 		t.Fatal(err)
@@ -243,8 +361,14 @@ func TestParseDropForeignKey(t *testing.T) {
 	}
 }
 
+// ============================================================
+// TABLE option parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+// ============================================================
+
+// TestParseEngineChange — エンジン変更のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
 func TestParseEngineChange(t *testing.T) {
-	// エンジン変更のパースを検証
 	ops, err := Parse("ALTER TABLE users ENGINE=InnoDB")
 	if err != nil {
 		t.Fatal(err)
@@ -258,8 +382,120 @@ func TestParseEngineChange(t *testing.T) {
 	}
 }
 
+// TestParseConvertCharset — CONVERT TO CHARACTER SETのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestParseConvertCharset(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionConvertCharset {
+		t.Errorf("アクションタイプがCONVERT_CHARACTER_SETであること: got %s", action.Type)
+	}
+}
+
+// TestParseSpecifyCharset — CHARACTER SET指定（CONVERT TOではない）のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestParseSpecifyCharset(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users CHARACTER SET = utf8mb4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionSpecifyCharset {
+		t.Errorf("アクションタイプがSPECIFY_CHARACTER_SETであること: got %s", action.Type)
+	}
+}
+
+// TestParseAutoIncrementValue — AUTO_INCREMENT値変更のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-column-operations
+func TestParseAutoIncrementValue(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users AUTO_INCREMENT=1000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionChangeAutoIncrement {
+		t.Errorf("アクションタイプがCHANGE_AUTO_INCREMENTであること: got %s", action.Type)
+	}
+}
+
+// TestParseKeyBlockSize — KEY_BLOCK_SIZE変更のパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestParseKeyBlockSize(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users KEY_BLOCK_SIZE=8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionChangeKeyBlockSize {
+		t.Errorf("アクションタイプがCHANGE_KEY_BLOCK_SIZEであること: got %s", action.Type)
+	}
+}
+
+// TestParseForceRebuild — ALTER TABLE ... FORCEのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-table-operations
+func TestParseForceRebuild(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users FORCE")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionForceRebuild {
+		t.Errorf("アクションタイプがFORCE_REBUILDであること: got %s", action.Type)
+	}
+}
+
+// ============================================================
+// PARTITION parse tests
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+// ============================================================
+
+// TestParseRemovePartitioning — REMOVE PARTITIONINGのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestParseRemovePartitioning(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users REMOVE PARTITIONING")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionRemovePartitioning {
+		t.Errorf("アクションタイプがREMOVE_PARTITIONINGであること: got %s", action.Type)
+	}
+}
+
+// TestParseTruncatePartition — TRUNCATE PARTITIONのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestParseTruncatePartition(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users TRUNCATE PARTITION p0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionTruncatePartition {
+		t.Errorf("アクションタイプがTRUNCATE_PARTITIONであること: got %s", action.Type)
+	}
+}
+
+// TestParseCoalescePartitions — COALESCE PARTITIONのパースを検証
+// https://dev.mysql.com/doc/refman/8.0/en/innodb-online-ddl-operations.html#online-ddl-partitioning-operations
+func TestParseCoalescePartitions(t *testing.T) {
+	ops, err := Parse("ALTER TABLE users COALESCE PARTITION 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := ops[0].Actions[0]
+	if action.Type != meta.ActionCoalescePartition {
+		t.Errorf("アクションタイプがCOALESCE_PARTITIONであること: got %s", action.Type)
+	}
+}
+
+// ============================================================
+// Multiple statement / action tests
+// ============================================================
+
 func TestParseMultipleStatements(t *testing.T) {
-	// 複数SQL文のパースを検証
 	sql := `
 		ALTER TABLE users ADD COLUMN nickname VARCHAR(255);
 		ALTER TABLE orders ADD INDEX idx_user (user_id);
@@ -280,7 +516,6 @@ func TestParseMultipleStatements(t *testing.T) {
 }
 
 func TestParseMultipleActionsInOneStatement(t *testing.T) {
-	// 1つのALTER文に複数アクションがある場合を検証
 	sql := "ALTER TABLE users ADD COLUMN nickname VARCHAR(255), ADD INDEX idx_nick (nickname)"
 	ops, err := Parse(sql)
 	if err != nil {
@@ -295,7 +530,6 @@ func TestParseMultipleActionsInOneStatement(t *testing.T) {
 }
 
 func TestParseNonAlterStatement(t *testing.T) {
-	// ALTER以外のSQL文はエラーになることを検証
 	_, err := Parse("SELECT 1")
 	if err == nil {
 		t.Fatal("ALTER以外の文はエラーになるべき")
@@ -303,7 +537,6 @@ func TestParseNonAlterStatement(t *testing.T) {
 }
 
 func TestParseInvalidSQL(t *testing.T) {
-	// 不正なSQLはエラーになることを検証
 	_, err := Parse("THIS IS NOT SQL")
 	if err == nil {
 		t.Fatal("不正なSQLはエラーになるべき")
@@ -311,7 +544,6 @@ func TestParseInvalidSQL(t *testing.T) {
 }
 
 func TestParseSchemaQualifiedTable(t *testing.T) {
-	// スキーマ修飾テーブル名のパースを検証
 	ops, err := Parse("ALTER TABLE mydb.users ADD COLUMN nickname VARCHAR(255)")
 	if err != nil {
 		t.Fatal(err)
@@ -321,118 +553,5 @@ func TestParseSchemaQualifiedTable(t *testing.T) {
 	}
 	if ops[0].Table != "users" {
 		t.Errorf("テーブルが'users'であること: got %q", ops[0].Table)
-	}
-}
-
-func TestParseAddColumnAutoIncrement(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users ADD COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if !action.Detail.IsAutoIncrement {
-		t.Error("AUTO_INCREMENTであること")
-	}
-	if action.Detail.IsNullable == nil || *action.Detail.IsNullable {
-		t.Error("NOT NULLであること")
-	}
-}
-
-func TestParseAddColumnGenerated(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) STORED")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Detail.GeneratedType != "STORED" {
-		t.Errorf("GeneratedTypeが'STORED'であること: got %q", action.Detail.GeneratedType)
-	}
-}
-
-func TestParseAddColumnVirtualGenerated(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users ADD COLUMN full_name VARCHAR(512) GENERATED ALWAYS AS (CONCAT(first_name, ' ', last_name)) VIRTUAL")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Detail.GeneratedType != "VIRTUAL" {
-		t.Errorf("GeneratedTypeが'VIRTUAL'であること: got %q", action.Detail.GeneratedType)
-	}
-}
-
-func TestParseForceRebuild(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users FORCE")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionForceRebuild {
-		t.Errorf("アクションタイプがFORCE_REBUILDであること: got %s", action.Type)
-	}
-}
-
-func TestParseAutoIncrementValue(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users AUTO_INCREMENT=1000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionChangeAutoIncrement {
-		t.Errorf("アクションタイプがCHANGE_AUTO_INCREMENTであること: got %s", action.Type)
-	}
-}
-
-func TestParseKeyBlockSize(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users KEY_BLOCK_SIZE=8")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionChangeKeyBlockSize {
-		t.Errorf("アクションタイプがCHANGE_KEY_BLOCK_SIZEであること: got %s", action.Type)
-	}
-}
-
-func TestParseRemovePartitioning(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users REMOVE PARTITIONING")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionRemovePartitioning {
-		t.Errorf("アクションタイプがREMOVE_PARTITIONINGであること: got %s", action.Type)
-	}
-}
-
-func TestParseTruncatePartition(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users TRUNCATE PARTITION p0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionTruncatePartition {
-		t.Errorf("アクションタイプがTRUNCATE_PARTITIONであること: got %s", action.Type)
-	}
-}
-
-func TestParseCoalescePartitions(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users COALESCE PARTITION 2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if action.Type != meta.ActionCoalescePartition {
-		t.Errorf("アクションタイプがCOALESCE_PARTITIONであること: got %s", action.Type)
-	}
-}
-
-func TestParseModifyColumnAutoIncrement(t *testing.T) {
-	ops, err := Parse("ALTER TABLE users MODIFY COLUMN id BIGINT NOT NULL AUTO_INCREMENT")
-	if err != nil {
-		t.Fatal(err)
-	}
-	action := ops[0].Actions[0]
-	if !action.Detail.IsAutoIncrement {
-		t.Error("AUTO_INCREMENTであること")
 	}
 }
