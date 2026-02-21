@@ -3,7 +3,6 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
-	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -17,16 +16,12 @@ import (
 
 var (
 	flagSQL      string
-	flagFile     string
-	flagDSN      string
 	flagHost     string
 	flagPort     int
 	flagUser     string
 	flagPassword string
 	flagDatabase string
 	flagFormat   string
-	flagFKChecks bool
-	flagFKDepth  int
 )
 
 var analyzeCmd = &cobra.Command{
@@ -38,16 +33,12 @@ var analyzeCmd = &cobra.Command{
 func init() {
 	f := analyzeCmd.Flags()
 	f.StringVar(&flagSQL, "sql", "", "ALTER TABLE statement to analyze")
-	f.StringVar(&flagFile, "file", "", "SQL file path to analyze")
-	f.StringVar(&flagDSN, "dsn", "", "MySQL DSN (user:pass@tcp(host:port)/dbname)")
 	f.StringVar(&flagHost, "host", "localhost", "MySQL host")
 	f.IntVar(&flagPort, "port", 3306, "MySQL port")
 	f.StringVar(&flagUser, "user", "", "MySQL user")
 	f.StringVar(&flagPassword, "password", "", "MySQL password")
 	f.StringVar(&flagDatabase, "database", "", "Database name")
 	f.StringVar(&flagFormat, "format", "text", "Output format: text|json")
-	f.BoolVar(&flagFKChecks, "fk-checks", true, "Assume foreign_key_checks is ON")
-	f.IntVar(&flagFKDepth, "fk-depth", 5, "Maximum FK dependency graph depth")
 }
 
 func runAnalyze(_ *cobra.Command, _ []string) error {
@@ -92,7 +83,7 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		// FK依存関係を解決
 		var fkGraph *fkresolver.FKGraph
 		fkProvider := &collectorAdapter{collector: collector}
-		resolver := fkresolver.NewResolver(fkProvider, flagFKDepth, flagFKChecks)
+		resolver := fkresolver.NewResolver(fkProvider, 5, true)
 		fkGraph, _ = resolver.Resolve(schema, op.Table, op.Actions)
 
 		analysis := reporter.AnalysisResult{
@@ -127,24 +118,14 @@ func getSQLInput() (string, error) {
 	if flagSQL != "" {
 		return flagSQL, nil
 	}
-	if flagFile != "" {
-		data, err := os.ReadFile(flagFile) //#nosec G304 -- user-provided file path is intentional
-		if err != nil {
-			return "", fmt.Errorf("failed to read SQL file: %w", err)
-		}
-		return string(data), nil
-	}
-	return "", fmt.Errorf("either --sql or --file must be specified")
+	return "", fmt.Errorf("--sql must be specified")
 }
 
 func initCollector() (meta.Collector, error) {
-	dsn := flagDSN
-	if dsn == "" {
-		if flagUser == "" || flagDatabase == "" {
-			return nil, fmt.Errorf("either --dsn or (--user, --database) must be specified")
-		}
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", flagUser, flagPassword, flagHost, flagPort, flagDatabase)
+	if flagUser == "" || flagDatabase == "" {
+		return nil, fmt.Errorf("--user and --database must be specified")
 	}
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", flagUser, flagPassword, flagHost, flagPort, flagDatabase)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -154,15 +135,7 @@ func initCollector() (meta.Collector, error) {
 		return nil, fmt.Errorf("failed to ping MySQL: %w", err)
 	}
 
-	database := flagDatabase
-	if database == "" {
-		// DSNからデータベース名を抽出
-		if err := db.QueryRow("SELECT DATABASE()").Scan(&database); err != nil {
-			return nil, fmt.Errorf("failed to get current database: %w", err)
-		}
-	}
-
-	return meta.NewDBCollector(db, database)
+	return meta.NewDBCollector(db, flagDatabase)
 }
 
 // collectorAdapter は meta.Collector を fkresolver.MetaProvider に適合させるアダプター。

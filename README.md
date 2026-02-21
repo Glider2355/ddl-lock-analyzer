@@ -31,25 +31,15 @@ make build
 ## 使い方
 
 ```bash
-# DSN で接続
-ddl-lock-analyzer analyze \
-  --sql "ALTER TABLE users ADD COLUMN nickname VARCHAR(255)" \
-  --dsn "root:pass@tcp(localhost:3306)/mydb"
-
-# 個別フラグで接続
+# 基本的な使い方
 ddl-lock-analyzer analyze \
   --sql "ALTER TABLE users ADD COLUMN nickname VARCHAR(255)" \
   --host localhost --port 3306 --user root --password pass --database mydb
 
-# SQL ファイルから読み込み
-ddl-lock-analyzer analyze \
-  --file ./migrations/001_add_column.sql \
-  --dsn "root:pass@tcp(localhost:3306)/mydb"
-
 # JSON 出力
 ddl-lock-analyzer analyze \
   --sql "ALTER TABLE users MODIFY COLUMN email VARCHAR(512) NOT NULL" \
-  --dsn "root:pass@tcp(localhost:3306)/mydb" \
+  --user root --password pass --database mydb \
   --format json
 ```
 
@@ -163,16 +153,12 @@ ddl-lock-analyzer analyze [flags]
 
 Flags:
       --sql string        ALTER 文を直接指定
-      --file string       SQL ファイルパス
-      --dsn string        MySQL DSN (user:pass@tcp(host:port)/dbname)
       --host string       MySQL ホスト (default "localhost")
       --port int          MySQL ポート (default 3306)
       --user string       MySQL ユーザー
       --password string   MySQL パスワード
       --database string   対象データベース名
       --format string     出力フォーマット: text|json (default "text")
-      --fk-checks         foreign_key_checks の想定値 (default true)
-      --fk-depth int      FK 依存グラフの最大探索深度 (default 5)
 ```
 
 ## 開発
