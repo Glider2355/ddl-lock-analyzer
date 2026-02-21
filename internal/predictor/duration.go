@@ -6,89 +6,36 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// DurationEstimate represents an estimated duration range.
-type DurationEstimate struct {
-	MinSeconds float64 `json:"min"`
-	MaxSeconds float64 `json:"max"`
-	Label      string  `json:"label"`
+// TableInfo holds raw table metrics for DBA decision-making.
+type TableInfo struct {
+	RowCount   int64  `json:"row_count"`
+	DataSize   int64  `json:"data_size_bytes"`
+	IndexSize  int64  `json:"index_size_bytes"`
+	IndexCount int    `json:"index_count"`
+	Label      string `json:"-"`
 }
 
-// EstimateDuration calculates estimated duration based on table metadata and operation type.
-func EstimateDuration(algorithm meta.Algorithm, tableRebuild bool, tableMeta *meta.TableMeta) DurationEstimate {
+// CollectTableInfo extracts raw table metrics from metadata.
+func CollectTableInfo(tableMeta *meta.TableMeta) TableInfo {
 	if tableMeta == nil {
-		return DurationEstimate{Label: "N/A (no table metadata)"}
+		return TableInfo{Label: "N/A (no table metadata)"}
 	}
 
-	switch algorithm {
-	case meta.AlgorithmInstant:
-		return DurationEstimate{
-			MinSeconds: 0,
-			MaxSeconds: 0,
-			Label:      "~0s (metadata only)",
-		}
-	case meta.AlgorithmInplace:
-		return estimateInplace(tableRebuild, tableMeta)
-	case meta.AlgorithmCopy:
-		return estimateCopy(tableMeta)
-	default:
-		return DurationEstimate{Label: "unknown"}
+	info := TableInfo{
+		RowCount:   tableMeta.RowCount,
+		DataSize:   tableMeta.DataLength,
+		IndexSize:  tableMeta.IndexLength,
+		IndexCount: len(tableMeta.Indexes),
 	}
+	info.Label = formatTableInfo(info)
+	return info
 }
 
-func estimateInplace(rebuild bool, tm *meta.TableMeta) DurationEstimate {
-	if !rebuild {
-		// No rebuild: proportional to data length but fast
-		dataMB := float64(tm.DataLength) / (1024 * 1024)
-		minSec := dataMB * 0.01
-		maxSec := dataMB * 0.05
-		return DurationEstimate{
-			MinSeconds: minSec,
-			MaxSeconds: maxSec,
-			Label:      formatDuration(minSec, maxSec, tm),
-		}
-	}
-
-	// Rebuild: proportional to data + index length
-	totalMB := float64(tm.DataLength+tm.IndexLength) / (1024 * 1024)
-	minSec := totalMB * 0.05
-	maxSec := totalMB * 0.2
-	return DurationEstimate{
-		MinSeconds: minSec,
-		MaxSeconds: maxSec,
-		Label:      formatDuration(minSec, maxSec, tm),
-	}
-}
-
-func estimateCopy(tm *meta.TableMeta) DurationEstimate {
-	totalMB := float64(tm.DataLength+tm.IndexLength) / (1024 * 1024)
-	// COPY is slower than INPLACE
-	minSec := totalMB * 0.1
-	maxSec := totalMB * 0.4
-	return DurationEstimate{
-		MinSeconds: minSec,
-		MaxSeconds: maxSec,
-		Label:      formatDuration(minSec, maxSec, tm),
-	}
-}
-
-func formatDuration(minSec, maxSec float64, tm *meta.TableMeta) string {
-	sizeStr := formatSize(tm.DataLength + tm.IndexLength)
-	if maxSec < 1 {
-		return fmt.Sprintf("~0s (rows: ~%s, size: %s)", formatCount(tm.RowCount), sizeStr)
-	}
-	return fmt.Sprintf("~%ss - ~%ss (rows: ~%s, size: %s)",
-		formatSeconds(minSec), formatSeconds(maxSec),
-		formatCount(tm.RowCount), sizeStr)
-}
-
-func formatSeconds(sec float64) string {
-	if sec < 60 {
-		return fmt.Sprintf("%.0f", sec)
-	}
-	if sec < 3600 {
-		return fmt.Sprintf("%.0fm", sec/60)
-	}
-	return fmt.Sprintf("%.1fh", sec/3600)
+func formatTableInfo(info TableInfo) string {
+	return fmt.Sprintf("rows: ~%s, data: %s, indexes: %d",
+		formatCount(info.RowCount),
+		formatSize(info.DataSize+info.IndexSize),
+		info.IndexCount)
 }
 
 func formatSize(bytes int64) string {

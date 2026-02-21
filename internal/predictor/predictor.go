@@ -14,7 +14,7 @@ type Prediction struct {
 	Lock         meta.LockLevel       `json:"lock_level"`
 	TableRebuild bool                 `json:"table_rebuild"`
 	RiskLevel    meta.RiskLevel       `json:"risk_level"`
-	Duration     DurationEstimate     `json:"estimated_duration"`
+	TableInfo    TableInfo            `json:"table_info"`
 	Notes        []string             `json:"notes,omitempty"`
 	Warnings     []string             `json:"warnings,omitempty"`
 }
@@ -40,7 +40,7 @@ func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) 
 			Lock:         meta.LockExclusive,
 			TableRebuild: true,
 			RiskLevel:    meta.RiskCritical,
-			Duration:     EstimateDuration(meta.AlgorithmCopy, true, tableMeta),
+			TableInfo:    CollectTableInfo(tableMeta),
 			Warnings:     []string{"Non-InnoDB engine — all operations use COPY algorithm with EXCLUSIVE lock"},
 		}
 	}
@@ -59,7 +59,7 @@ func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) 
 			Lock:         rule.Lock,
 			TableRebuild: rule.TableRebuild,
 			RiskLevel:    calculateRisk(rule.Algorithm, rule.Lock, rule.TableRebuild),
-			Duration:     EstimateDuration(rule.Algorithm, rule.TableRebuild, tableMeta),
+			TableInfo:    CollectTableInfo(tableMeta),
 			Notes:        rule.Notes,
 			Warnings:     rule.Warnings,
 		}
@@ -74,7 +74,7 @@ func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) 
 		Lock:         meta.LockExclusive,
 		TableRebuild: true,
 		RiskLevel:    meta.RiskCritical,
-		Duration:     EstimateDuration(meta.AlgorithmCopy, true, tableMeta),
+		TableInfo:    CollectTableInfo(tableMeta),
 		Warnings:     []string{"Unknown operation — defaulting to COPY/EXCLUSIVE for safety"},
 	}
 }

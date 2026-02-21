@@ -219,17 +219,31 @@ func TestPredictChangeEngine(t *testing.T) {
 	}
 }
 
-func TestEstimateDurationInstant(t *testing.T) {
-	est := EstimateDuration(meta.AlgorithmInstant, false, &meta.TableMeta{})
-	if est.MinSeconds != 0 || est.MaxSeconds != 0 {
-		t.Errorf("expected 0s for INSTANT, got min=%f max=%f", est.MinSeconds, est.MaxSeconds)
+func TestCollectTableInfoWithMeta(t *testing.T) {
+	tm := &meta.TableMeta{
+		RowCount:    1200000,
+		DataLength:  500 * 1024 * 1024,
+		IndexLength: 50 * 1024 * 1024,
+		Indexes: []meta.IndexMeta{
+			{Name: "PRIMARY"}, {Name: "idx_email"}, {Name: "idx_name"},
+		},
+	}
+	info := CollectTableInfo(tm)
+	if info.RowCount != 1200000 {
+		t.Errorf("expected RowCount=1200000, got %d", info.RowCount)
+	}
+	if info.IndexCount != 3 {
+		t.Errorf("expected IndexCount=3, got %d", info.IndexCount)
+	}
+	if info.Label == "" {
+		t.Error("expected non-empty label")
 	}
 }
 
-func TestEstimateDurationNoMeta(t *testing.T) {
-	est := EstimateDuration(meta.AlgorithmCopy, true, nil)
-	if est.Label != "N/A (no table metadata)" {
-		t.Errorf("expected no-metadata label, got %q", est.Label)
+func TestCollectTableInfoNoMeta(t *testing.T) {
+	info := CollectTableInfo(nil)
+	if info.Label != "N/A (no table metadata)" {
+		t.Errorf("expected no-metadata label, got %q", info.Label)
 	}
 }
 

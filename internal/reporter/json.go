@@ -26,16 +26,18 @@ type jsonAnalysis struct {
 	Algorithm     meta.Algorithm     `json:"algorithm"`
 	LockLevel     meta.LockLevel     `json:"lock_level"`
 	TableRebuild  bool               `json:"table_rebuild"`
-	EstDuration   *jsonDuration      `json:"estimated_duration_sec,omitempty"`
+	TableInfo     *jsonTableInfo     `json:"table_info,omitempty"`
 	RiskLevel     meta.RiskLevel     `json:"risk_level"`
 	FKPropagation *jsonFKPropagation `json:"fk_propagation,omitempty"`
 	Notes         []string           `json:"notes,omitempty"`
 	Warnings      []string           `json:"warnings,omitempty"`
 }
 
-type jsonDuration struct {
-	Min float64 `json:"min"`
-	Max float64 `json:"max"`
+type jsonTableInfo struct {
+	RowCount   int64 `json:"row_count"`
+	DataSize   int64 `json:"data_size_bytes"`
+	IndexSize  int64 `json:"index_size_bytes"`
+	IndexCount int   `json:"index_count"`
 }
 
 type jsonFKPropagation struct {
@@ -71,10 +73,12 @@ func (r *JSONReporter) Render(report *Report) (string, error) {
 				Warnings:     pred.Warnings,
 			}
 
-			if pred.Duration.Label != "" && pred.Duration.Label != "N/A (no table metadata)" {
-				ja.EstDuration = &jsonDuration{
-					Min: pred.Duration.MinSeconds,
-					Max: pred.Duration.MaxSeconds,
+			if pred.TableInfo.Label != "" && pred.TableInfo.Label != "N/A (no table metadata)" {
+				ja.TableInfo = &jsonTableInfo{
+					RowCount:   pred.TableInfo.RowCount,
+					DataSize:   pred.TableInfo.DataSize,
+					IndexSize:  pred.TableInfo.IndexSize,
+					IndexCount: pred.TableInfo.IndexCount,
 				}
 			}
 

@@ -24,7 +24,7 @@ func TestTextReporterBasic(t *testing.T) {
 						Lock:         meta.LockNone,
 						TableRebuild: false,
 						RiskLevel:    meta.RiskLow,
-						Duration:     predictor.DurationEstimate{Label: "~0s (metadata only)"},
+						TableInfo:    predictor.TableInfo{Label: "N/A (no table metadata)"},
 						Notes:        []string{"INSTANT algorithm available (MySQL 8.0.12+)"},
 					},
 				},
@@ -44,7 +44,7 @@ func TestTextReporterBasic(t *testing.T) {
 		"INSTANT",
 		"NONE",
 		"LOW",
-		"metadata only",
+		"N/A",
 	}
 	for _, check := range checks {
 		if !strings.Contains(output, check) {
@@ -68,7 +68,7 @@ func TestTextReporterCritical(t *testing.T) {
 						Lock:         meta.LockExclusive,
 						TableRebuild: true,
 						RiskLevel:    meta.RiskCritical,
-						Duration:     predictor.DurationEstimate{Label: "~45s - ~180s"},
+						TableInfo:    predictor.TableInfo{RowCount: 1200000, DataSize: 500 * 1024 * 1024, IndexSize: 50 * 1024 * 1024, IndexCount: 3, Label: "rows: ~1,200,000, data: 524MB, indexes: 3"},
 						Warnings:     []string{"EXCLUSIVE lock will block all DML"},
 					},
 				},
@@ -107,7 +107,7 @@ func TestJSONReporterBasic(t *testing.T) {
 						Lock:         meta.LockNone,
 						TableRebuild: false,
 						RiskLevel:    meta.RiskLow,
-						Duration:     predictor.DurationEstimate{Label: "~0s"},
+						TableInfo:    predictor.TableInfo{Label: "N/A (no table metadata)"},
 					},
 				},
 			},
@@ -173,9 +173,9 @@ func TestMultipleAnalyses(t *testing.T) {
 	report := &Report{
 		Analyses: []AnalysisResult{
 			{Table: "mydb.users", SQL: "ALTER TABLE users ADD COLUMN a INT",
-				Predictions: []predictor.Prediction{{Description: "ADD COLUMN", Algorithm: meta.AlgorithmInstant, Lock: meta.LockNone, RiskLevel: meta.RiskLow, Duration: predictor.DurationEstimate{Label: "~0s"}}}},
+				Predictions: []predictor.Prediction{{Description: "ADD COLUMN", Algorithm: meta.AlgorithmInstant, Lock: meta.LockNone, RiskLevel: meta.RiskLow, TableInfo: predictor.TableInfo{Label: "N/A (no table metadata)"}}}},
 			{Table: "mydb.orders", SQL: "ALTER TABLE orders ADD INDEX idx (col)",
-				Predictions: []predictor.Prediction{{Description: "ADD INDEX", Algorithm: meta.AlgorithmInplace, Lock: meta.LockNone, RiskLevel: meta.RiskMedium, Duration: predictor.DurationEstimate{Label: "~5s"}}}},
+				Predictions: []predictor.Prediction{{Description: "ADD INDEX", Algorithm: meta.AlgorithmInplace, Lock: meta.LockNone, RiskLevel: meta.RiskMedium, TableInfo: predictor.TableInfo{Label: "N/A (no table metadata)"}}}},
 		},
 	}
 	output, err := r.Render(report)

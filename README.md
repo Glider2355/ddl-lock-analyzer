@@ -11,7 +11,7 @@ MySQL の `ALTER TABLE` 実行前に、ロック影響を予測する CLI ツー
 - **テーブル再構築** の有無
 - **リスクレベル** — LOW / MEDIUM / HIGH / CRITICAL
 - **外部キー依存テーブルへの MDL 伝播**
-- **推定影響時間**
+- **テーブル情報** (行数・データサイズ・インデックス数)
 
 ## インストール
 
@@ -67,7 +67,7 @@ SQL:   ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(255)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No
-  Est. Duration : ~0s (metadata only)
+  Table Info    : rows: ~500,000, data: 120MB, indexes: 3
   Risk Level    : LOW
 
   Note:
@@ -88,7 +88,7 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
   Algorithm     : COPY
   Lock Level    : EXCLUSIVE (DML blocked)
   Table Rebuild : Yes
-  Est. Duration : ~45s - ~180s (rows: ~1,200,000, size: 480MB)
+  Table Info    : rows: ~1,200,000, data: 480MB, indexes: 5
   Risk Level    : CRITICAL
 
   Warning:
@@ -109,9 +109,11 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
       "algorithm": "COPY",
       "lock_level": "EXCLUSIVE",
       "table_rebuild": true,
-      "estimated_duration_sec": {
-        "min": 45,
-        "max": 180
+      "table_info": {
+        "row_count": 1200000,
+        "data_size_bytes": 503316480,
+        "index_size_bytes": 52428800,
+        "index_count": 5
       },
       "risk_level": "CRITICAL",
       "warnings": [
@@ -197,7 +199,7 @@ make all
 ## 注意事項
 
 - 判定ルールは **InnoDB** を前提としています。MyISAM 等は全て COPY/EXCLUSIVE として扱います
-- 推定影響時間はあくまで目安です。実際の実行時間はディスク I/O・CPU・同時接続数に依存します
+- テーブル情報（行数・データサイズ）は `information_schema` から取得した概算値です
 - CRITICAL リスクの操作では `pt-online-schema-change` や `gh-ost` の利用を推奨します
 
 ## ライセンス

@@ -40,7 +40,7 @@ func (r *TextReporter) renderAnalysis(sb *strings.Builder, analysis *AnalysisRes
 		fmt.Fprintf(sb, "  Algorithm     : %s\n", pred.Algorithm)
 		fmt.Fprintf(sb, "  Lock Level    : %s%s\n", pred.Lock, lockDescription(pred.Lock))
 		fmt.Fprintf(sb, "  Table Rebuild : %s\n", boolYesNo(pred.TableRebuild))
-		fmt.Fprintf(sb, "  Est. Duration : %s\n", pred.Duration.Label)
+		fmt.Fprintf(sb, "  Table Info    : %s\n", pred.TableInfo.Label)
 		fmt.Fprintf(sb, "  Risk Level    : %s\n", pred.RiskLevel)
 
 		if len(pred.Notes) > 0 {
