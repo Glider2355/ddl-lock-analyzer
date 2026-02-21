@@ -226,10 +226,10 @@ func TestEstimateDurationInstant(t *testing.T) {
 	}
 }
 
-func TestEstimateDurationOffline(t *testing.T) {
+func TestEstimateDurationNoMeta(t *testing.T) {
 	est := EstimateDuration(meta.AlgorithmCopy, true, nil)
-	if est.Label != "N/A (offline mode)" {
-		t.Errorf("expected offline label, got %q", est.Label)
+	if est.Label != "N/A (no table metadata)" {
+		t.Errorf("expected no-metadata label, got %q", est.Label)
 	}
 }
 

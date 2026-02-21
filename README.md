@@ -11,7 +11,7 @@ MySQL の `ALTER TABLE` 実行前に、ロック影響を予測する CLI ツー
 - **テーブル再構築** の有無
 - **リスクレベル** — LOW / MEDIUM / HIGH / CRITICAL
 - **外部キー依存テーブルへの MDL 伝播**
-- **推定影響時間** (DB 接続モード時)
+- **推定影響時間**
 
 ## インストール
 
@@ -30,32 +30,6 @@ make build
 
 ## 使い方
 
-### オフラインモード (DB 接続なし)
-
-```bash
-# カラム追加 → INSTANT / LOW
-ddl-lock-analyzer analyze \
-  --sql "ALTER TABLE users ADD COLUMN nickname VARCHAR(255)" \
-  --offline
-
-# カラム型変更 → COPY / CRITICAL
-ddl-lock-analyzer analyze \
-  --sql "ALTER TABLE users MODIFY COLUMN email VARCHAR(512) NOT NULL" \
-  --offline
-
-# インデックス追加 → INPLACE / MEDIUM
-ddl-lock-analyzer analyze \
-  --sql "ALTER TABLE users ADD INDEX idx_email (email)" \
-  --offline
-
-# JSON 出力
-ddl-lock-analyzer analyze \
-  --sql "ALTER TABLE users ADD COLUMN nickname VARCHAR(255)" \
-  --offline --format json
-```
-
-### DB 接続モード
-
 ```bash
 # DSN で接続
 ddl-lock-analyzer analyze \
@@ -71,6 +45,12 @@ ddl-lock-analyzer analyze \
 ddl-lock-analyzer analyze \
   --file ./migrations/001_add_column.sql \
   --dsn "root:pass@tcp(localhost:3306)/mydb"
+
+# JSON 出力
+ddl-lock-analyzer analyze \
+  --sql "ALTER TABLE users MODIFY COLUMN email VARCHAR(512) NOT NULL" \
+  --dsn "root:pass@tcp(localhost:3306)/mydb" \
+  --format json
 ```
 
 ## 出力例
@@ -80,14 +60,14 @@ ddl-lock-analyzer analyze \
 ```
 === DDL Lock Analysis Report ===
 
-Table: users
+Table: mydb.users
 SQL:   ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(255)
 
   Operation     : ADD COLUMN (末尾, NULLABLE)
   Algorithm     : INSTANT
   Lock Level    : NONE (concurrent DML allowed)
   Table Rebuild : No
-  Est. Duration : N/A (offline mode)
+  Est. Duration : ~0s (metadata only)
   Risk Level    : LOW
 
   Note:
@@ -101,14 +81,14 @@ SQL:   ALTER TABLE `users` ADD COLUMN `nickname` VARCHAR(255)
 ```
 === DDL Lock Analysis Report ===
 
-Table: users
+Table: mydb.users
 SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
 
   Operation     : MODIFY COLUMN (type change)
   Algorithm     : COPY
   Lock Level    : EXCLUSIVE (DML blocked)
   Table Rebuild : Yes
-  Est. Duration : N/A (offline mode)
+  Est. Duration : ~45s - ~180s (rows: ~1,200,000, size: 480MB)
   Risk Level    : CRITICAL
 
   Warning:
@@ -123,12 +103,16 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
 {
   "analyses": [
     {
-      "table": "users",
+      "table": "mydb.users",
       "sql": "ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL",
       "operation": "MODIFY_COLUMN",
       "algorithm": "COPY",
       "lock_level": "EXCLUSIVE",
       "table_rebuild": true,
+      "estimated_duration_sec": {
+        "min": 45,
+        "max": 180
+      },
       "risk_level": "CRITICAL",
       "warnings": [
         "EXCLUSIVE lock will block all DML during execution",
@@ -176,20 +160,17 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
 ddl-lock-analyzer analyze [flags]
 
 Flags:
-      --sql string           ALTER 文を直接指定
-      --file string          SQL ファイルパス
-      --dsn string           MySQL DSN (user:pass@tcp(host:port)/dbname)
-      --host string          MySQL ホスト (default "localhost")
-      --port int             MySQL ポート (default 3306)
-      --user string          MySQL ユーザー
-      --password string      MySQL パスワード
-      --database string      対象データベース名
-      --mysql-version string MySQL バージョン (default "8.0")
-      --format string        出力フォーマット: text|json (default "text")
-      --fk-checks            foreign_key_checks の想定値 (default true)
-      --fk-depth int         FK 依存グラフの最大探索深度 (default 5)
-      --offline              オフラインモード (DB 接続なし)
-      --meta-file string     メタ情報 JSON ファイルパス
+      --sql string        ALTER 文を直接指定
+      --file string       SQL ファイルパス
+      --dsn string        MySQL DSN (user:pass@tcp(host:port)/dbname)
+      --host string       MySQL ホスト (default "localhost")
+      --port int          MySQL ポート (default 3306)
+      --user string       MySQL ユーザー
+      --password string   MySQL パスワード
+      --database string   対象データベース名
+      --format string     出力フォーマット: text|json (default "text")
+      --fk-checks         foreign_key_checks の想定値 (default true)
+      --fk-depth int      FK 依存グラフの最大探索深度 (default 5)
 ```
 
 ## 開発

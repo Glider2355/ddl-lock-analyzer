@@ -16,20 +16,17 @@ import (
 )
 
 var (
-	flagSQL          string
-	flagFile         string
-	flagDSN          string
-	flagHost         string
-	flagPort         int
-	flagUser         string
-	flagPassword     string
-	flagDatabase     string
-	flagMySQLVersion string
-	flagFormat       string
-	flagFKChecks     bool
-	flagFKDepth      int
-	flagOffline      bool
-	flagMetaFile     string
+	flagSQL      string
+	flagFile     string
+	flagDSN      string
+	flagHost     string
+	flagPort     int
+	flagUser     string
+	flagPassword string
+	flagDatabase string
+	flagFormat   string
+	flagFKChecks bool
+	flagFKDepth  int
 )
 
 var analyzeCmd = &cobra.Command{
@@ -48,12 +45,9 @@ func init() {
 	f.StringVar(&flagUser, "user", "", "MySQL user")
 	f.StringVar(&flagPassword, "password", "", "MySQL password")
 	f.StringVar(&flagDatabase, "database", "", "Database name")
-	f.StringVar(&flagMySQLVersion, "mysql-version", "8.0", "MySQL version (for offline mode)")
 	f.StringVar(&flagFormat, "format", "text", "Output format: text|json")
 	f.BoolVar(&flagFKChecks, "fk-checks", true, "Assume foreign_key_checks is ON")
 	f.IntVar(&flagFKDepth, "fk-depth", 5, "Maximum FK dependency graph depth")
-	f.BoolVar(&flagOffline, "offline", false, "Offline mode (no DB connection)")
-	f.StringVar(&flagMetaFile, "meta-file", "", "Metadata JSON file path (for offline mode)")
 }
 
 func runAnalyze(_ *cobra.Command, _ []string) error {
@@ -73,11 +67,6 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 	collector, err := initCollector()
 	if err != nil {
 		return err
-	}
-
-	// Close DB connection if applicable
-	if dbCollector, ok := collector.(*meta.DBCollector); ok {
-		_ = dbCollector
 	}
 
 	// Build report
@@ -149,17 +138,10 @@ func getSQLInput() (string, error) {
 }
 
 func initCollector() (meta.Collector, error) {
-	if flagOffline {
-		if flagMetaFile != "" {
-			return meta.NewFileCollector(flagMetaFile, flagMySQLVersion)
-		}
-		return meta.NewOfflineCollector(flagMySQLVersion), nil
-	}
-
 	dsn := flagDSN
 	if dsn == "" {
 		if flagUser == "" || flagDatabase == "" {
-			return nil, fmt.Errorf("either --dsn or (--user, --database) must be specified, or use --offline")
+			return nil, fmt.Errorf("either --dsn or (--user, --database) must be specified")
 		}
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", flagUser, flagPassword, flagHost, flagPort, flagDatabase)
 	}

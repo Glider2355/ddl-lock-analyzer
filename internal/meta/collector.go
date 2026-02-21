@@ -2,9 +2,7 @@ package meta
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -258,73 +256,4 @@ func (c *DBCollector) fetchReferencedBy(tm *TableMeta) error {
 		tm.ReferencedBy = append(tm.ReferencedBy, *fkMap[name])
 	}
 	return nil
-}
-
-// FileCollector reads metadata from a JSON file (offline mode).
-type FileCollector struct {
-	tables       map[string]*TableMeta
-	mysqlVersion string
-}
-
-// NewFileCollector creates a new FileCollector from a JSON file.
-func NewFileCollector(filePath string, mysqlVersion string) (*FileCollector, error) {
-	data, err := os.ReadFile(filePath) //nolint:gosec // filePath is user-provided intentionally
-	if err != nil {
-		return nil, fmt.Errorf("failed to read meta file: %w", err)
-	}
-
-	var tables []TableMeta
-	if err := json.Unmarshal(data, &tables); err != nil {
-		return nil, fmt.Errorf("failed to parse meta file: %w", err)
-	}
-
-	fc := &FileCollector{
-		tables:       make(map[string]*TableMeta),
-		mysqlVersion: mysqlVersion,
-	}
-	for i := range tables {
-		tables[i].MySQLVersion = mysqlVersion
-		key := tables[i].Schema + "." + tables[i].Table
-		fc.tables[key] = &tables[i]
-		fc.tables[tables[i].Table] = &tables[i]
-	}
-
-	return fc, nil
-}
-
-// GetMySQLVersion returns the MySQL version.
-func (c *FileCollector) GetMySQLVersion() string {
-	return c.mysqlVersion
-}
-
-// GetTableMeta retrieves metadata for a specific table from the loaded file.
-func (c *FileCollector) GetTableMeta(schema, table string) (*TableMeta, error) {
-	key := schema + "." + table
-	if tm, ok := c.tables[key]; ok {
-		return tm, nil
-	}
-	if tm, ok := c.tables[table]; ok {
-		return tm, nil
-	}
-	return nil, fmt.Errorf("table %q not found in meta file", key)
-}
-
-// OfflineCollector provides minimal metadata for offline mode without a meta file.
-type OfflineCollector struct {
-	mysqlVersion string
-}
-
-// NewOfflineCollector creates a collector for offline mode with no meta file.
-func NewOfflineCollector(mysqlVersion string) *OfflineCollector {
-	return &OfflineCollector{mysqlVersion: mysqlVersion}
-}
-
-// GetMySQLVersion returns the MySQL version.
-func (c *OfflineCollector) GetMySQLVersion() string {
-	return c.mysqlVersion
-}
-
-// GetTableMeta returns nil for offline mode without a meta file.
-func (c *OfflineCollector) GetTableMeta(_, _ string) (*TableMeta, error) {
-	return nil, fmt.Errorf("no metadata available in offline mode")
 }

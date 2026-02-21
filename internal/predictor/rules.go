@@ -103,7 +103,7 @@ func defaultRules() []PredictionRule {
 			Description: "MODIFY COLUMN (type change)",
 			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
 				if tm == nil {
-					return true // assume type change in offline mode
+					return true // no metadata available, assume type change
 				}
 				for _, col := range tm.Columns {
 					if strings.EqualFold(col.Name, a.Detail.ColumnName) {

@@ -16,7 +16,7 @@ type DurationEstimate struct {
 // EstimateDuration calculates estimated duration based on table metadata and operation type.
 func EstimateDuration(algorithm meta.Algorithm, tableRebuild bool, tableMeta *meta.TableMeta) DurationEstimate {
 	if tableMeta == nil {
-		return DurationEstimate{Label: "N/A (offline mode)"}
+		return DurationEstimate{Label: "N/A (no table metadata)"}
 	}
 
 	switch algorithm {

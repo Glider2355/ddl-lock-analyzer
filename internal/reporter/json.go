@@ -71,7 +71,7 @@ func (r *JSONReporter) Render(report *Report) (string, error) {
 				Warnings:     pred.Warnings,
 			}
 
-			if pred.Duration.Label != "" && pred.Duration.Label != "N/A (offline mode)" {
+			if pred.Duration.Label != "" && pred.Duration.Label != "N/A (no table metadata)" {
 				ja.EstDuration = &jsonDuration{
 					Min: pred.Duration.MinSeconds,
 					Max: pred.Duration.MaxSeconds,
