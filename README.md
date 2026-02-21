@@ -87,6 +87,43 @@ SQL:   ALTER TABLE `users` MODIFY COLUMN `email` VARCHAR(512) NOT NULL
     - Consider using pt-online-schema-change or gh-ost for large tables
 ```
 
+### FK 依存テーブルへの MDL 伝播
+
+外部キーを持つテーブルへの DDL では、関連テーブルへのメタデータロック伝播が表示されます。
+
+```
+=== DDL Lock Analysis Report ===
+
+Table: mydb.orders
+SQL:   ALTER TABLE `orders` ADD COLUMN `discount_rate` DECIMAL(5,2)
+
+  Operation     : ADD COLUMN (末尾, NULLABLE)
+  Algorithm     : INSTANT
+  Lock Level    : NONE (concurrent DML allowed)
+  Table Rebuild : No
+  Table Info    : rows: ~300,000, data: 80MB, indexes: 4
+  Risk Level    : LOW
+
+  Note:
+    - INSTANT algorithm available (MySQL 8.0.12+)
+    - No table rebuild required
+    - DML operations are not blocked
+
+  FK Lock Propagation:
+    mydb.orders has 3 FK relationships — MDL will propagate to related tables
+
+    Direction  Table                  Lock Type       Reason
+    ────────── ────────────────────── ─────────────── ──────────────────────────────
+    PARENT     mydb.users             SHARED_READ     FK: orders.user_id → users.id
+    CHILD      mydb.order_items       SHARED_READ     FK: order_items.order_id → orders.id
+      └─CHILD  mydb.item_details      SHARED_READ     FK: item_details.item_id → order_items.id
+
+  Warning:
+    - MDL propagation to 3 related tables detected
+    - Long-running DDL on related tables may cause MDL wait queue buildup
+    - If concurrent DDL on related tables is planned, coordinate execution order
+```
+
 ### JSON 出力
 
 ```json
