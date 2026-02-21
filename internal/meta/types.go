@@ -30,15 +30,15 @@ const (
 
 // TableMeta はMySQLテーブルのメタデータを保持する。
 type TableMeta struct {
-	Schema       string           `json:"schema"`
-	Table        string           `json:"table"`
-	Engine       string           `json:"engine"`
-	RowCount     int64            `json:"row_count"`
-	DataLength   int64            `json:"data_length"`
-	IndexLength  int64            `json:"index_length"`
-	Columns      []ColumnMeta     `json:"columns"`
-	Indexes      []IndexMeta      `json:"indexes"`
-	ForeignKeys  []ForeignKeyMeta `json:"foreign_keys"`
+	Schema        string           `json:"schema"`
+	Table         string           `json:"table"`
+	Engine        string           `json:"engine"`
+	RowCount      int64            `json:"row_count"`
+	DataLength    int64            `json:"data_length"`
+	IndexLength   int64            `json:"index_length"`
+	Columns       []ColumnMeta     `json:"columns"`
+	Indexes       []IndexMeta      `json:"indexes"`
+	ForeignKeys   []ForeignKeyMeta `json:"foreign_keys"`
 	ReferencedBy  []ForeignKeyMeta `json:"referenced_by"`
 	MySQLVersion  string           `json:"mysql_version"`
 	IsPartitioned bool             `json:"is_partitioned"`
@@ -85,38 +85,38 @@ type ForeignKeyMeta struct {
 type AlterActionType string
 
 const (
-	ActionAddColumn        AlterActionType = "ADD_COLUMN"
-	ActionDropColumn       AlterActionType = "DROP_COLUMN"
-	ActionModifyColumn     AlterActionType = "MODIFY_COLUMN"
-	ActionChangeColumn     AlterActionType = "CHANGE_COLUMN"
-	ActionRenameColumn     AlterActionType = "RENAME_COLUMN"
-	ActionSetDefault       AlterActionType = "ALTER_COLUMN_SET_DEFAULT"
-	ActionDropDefault      AlterActionType = "ALTER_COLUMN_DROP_DEFAULT"
-	ActionAddIndex         AlterActionType = "ADD_INDEX"
-	ActionAddUniqueIndex   AlterActionType = "ADD_UNIQUE_INDEX"
-	ActionAddFulltextIndex AlterActionType = "ADD_FULLTEXT_INDEX"
-	ActionDropIndex        AlterActionType = "DROP_INDEX"
-	ActionRenameIndex      AlterActionType = "RENAME_INDEX"
-	ActionAddPrimaryKey    AlterActionType = "ADD_PRIMARY_KEY"
-	ActionDropPrimaryKey   AlterActionType = "DROP_PRIMARY_KEY"
-	ActionAddForeignKey    AlterActionType = "ADD_FOREIGN_KEY"
-	ActionDropForeignKey   AlterActionType = "DROP_FOREIGN_KEY"
-	ActionRenameTable      AlterActionType = "RENAME_TABLE"
-	ActionConvertCharset   AlterActionType = "CONVERT_CHARACTER_SET"
-	ActionChangeEngine     AlterActionType = "CHANGE_ENGINE"
-	ActionChangeRowFormat  AlterActionType = "CHANGE_ROW_FORMAT"
-	ActionAddPartition        AlterActionType = "ADD_PARTITION"
-	ActionDropPartition       AlterActionType = "DROP_PARTITION"
-	ActionAddSpatialIndex     AlterActionType = "ADD_SPATIAL_INDEX"
-	ActionChangeAutoIncrement AlterActionType = "CHANGE_AUTO_INCREMENT"
-	ActionChangeKeyBlockSize  AlterActionType = "CHANGE_KEY_BLOCK_SIZE"
-	ActionForceRebuild        AlterActionType = "FORCE_REBUILD"
-	ActionCoalescePartition   AlterActionType = "COALESCE_PARTITION"
-	ActionReorganizePartition AlterActionType = "REORGANIZE_PARTITION"
-	ActionTruncatePartition   AlterActionType = "TRUNCATE_PARTITION"
-	ActionRebuildPartition    AlterActionType = "REBUILD_PARTITION"
-	ActionRemovePartitioning  AlterActionType = "REMOVE_PARTITIONING"
-	ActionPartitionBy         AlterActionType = "PARTITION_BY"
+	ActionAddColumn                  AlterActionType = "ADD_COLUMN"
+	ActionDropColumn                 AlterActionType = "DROP_COLUMN"
+	ActionModifyColumn               AlterActionType = "MODIFY_COLUMN"
+	ActionChangeColumn               AlterActionType = "CHANGE_COLUMN"
+	ActionRenameColumn               AlterActionType = "RENAME_COLUMN"
+	ActionSetDefault                 AlterActionType = "ALTER_COLUMN_SET_DEFAULT"
+	ActionDropDefault                AlterActionType = "ALTER_COLUMN_DROP_DEFAULT"
+	ActionAddIndex                   AlterActionType = "ADD_INDEX"
+	ActionAddUniqueIndex             AlterActionType = "ADD_UNIQUE_INDEX"
+	ActionAddFulltextIndex           AlterActionType = "ADD_FULLTEXT_INDEX"
+	ActionDropIndex                  AlterActionType = "DROP_INDEX"
+	ActionRenameIndex                AlterActionType = "RENAME_INDEX"
+	ActionAddPrimaryKey              AlterActionType = "ADD_PRIMARY_KEY"
+	ActionDropPrimaryKey             AlterActionType = "DROP_PRIMARY_KEY"
+	ActionAddForeignKey              AlterActionType = "ADD_FOREIGN_KEY"
+	ActionDropForeignKey             AlterActionType = "DROP_FOREIGN_KEY"
+	ActionRenameTable                AlterActionType = "RENAME_TABLE"
+	ActionConvertCharset             AlterActionType = "CONVERT_CHARACTER_SET"
+	ActionChangeEngine               AlterActionType = "CHANGE_ENGINE"
+	ActionChangeRowFormat            AlterActionType = "CHANGE_ROW_FORMAT"
+	ActionAddPartition               AlterActionType = "ADD_PARTITION"
+	ActionDropPartition              AlterActionType = "DROP_PARTITION"
+	ActionAddSpatialIndex            AlterActionType = "ADD_SPATIAL_INDEX"
+	ActionChangeAutoIncrement        AlterActionType = "CHANGE_AUTO_INCREMENT"
+	ActionChangeKeyBlockSize         AlterActionType = "CHANGE_KEY_BLOCK_SIZE"
+	ActionForceRebuild               AlterActionType = "FORCE_REBUILD"
+	ActionCoalescePartition          AlterActionType = "COALESCE_PARTITION"
+	ActionReorganizePartition        AlterActionType = "REORGANIZE_PARTITION"
+	ActionTruncatePartition          AlterActionType = "TRUNCATE_PARTITION"
+	ActionRebuildPartition           AlterActionType = "REBUILD_PARTITION"
+	ActionRemovePartitioning         AlterActionType = "REMOVE_PARTITIONING"
+	ActionPartitionBy                AlterActionType = "PARTITION_BY"
 	ActionExchangePartition          AlterActionType = "EXCHANGE_PARTITION"
 	ActionSpecifyCharset             AlterActionType = "SPECIFY_CHARACTER_SET"
 	ActionSetTableStats              AlterActionType = "SET_TABLE_STATISTICS"

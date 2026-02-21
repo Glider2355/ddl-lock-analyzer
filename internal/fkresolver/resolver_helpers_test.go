@@ -8,9 +8,9 @@ import (
 
 func TestSplitQualifiedName(t *testing.T) {
 	tests := []struct {
-		name   string
-		input  string
-		want   [2]string
+		name  string
+		input string
+		want  [2]string
 	}{
 		{"schema.table", "mydb.users", [2]string{"mydb", "users"}},
 		{"tableのみ", "users", [2]string{"", "users"}},

@@ -20,7 +20,7 @@ func Parse(sql string) ([]meta.AlterOperation, error) {
 		return nil, fmt.Errorf("SQL parse error: %w", err)
 	}
 
-	var ops []meta.AlterOperation
+	ops := make([]meta.AlterOperation, 0, len(stmts))
 	for _, stmt := range stmts {
 		alterStmt, ok := stmt.(*ast.AlterTableStmt)
 		if !ok {
@@ -68,22 +68,22 @@ func extractSQL(stmt *ast.AlterTableStmt, rawSQL string) string {
 
 // simpleSpecActions は単純な1対1マッピング（specType → ActionType）。
 var simpleSpecActions = map[ast.AlterTableType]meta.AlterActionType{
-	ast.AlterTableDropPrimaryKey:               meta.ActionDropPrimaryKey,
-	ast.AlterTableAddPartitions:                meta.ActionAddPartition,
-	ast.AlterTableDropPartition:                meta.ActionDropPartition,
-	ast.AlterTableCoalescePartitions:           meta.ActionCoalescePartition,
-	ast.AlterTableReorganizePartition:          meta.ActionReorganizePartition,
-	ast.AlterTableTruncatePartition:            meta.ActionTruncatePartition,
-	ast.AlterTableRebuildPartition:             meta.ActionRebuildPartition,
-	ast.AlterTableRemovePartitioning:           meta.ActionRemovePartitioning,
-	ast.AlterTablePartition:                    meta.ActionPartitionBy,
-	ast.AlterTableExchangePartition:            meta.ActionExchangePartition,
-	ast.AlterTableForce:                        meta.ActionForceRebuild,
-	ast.AlterTableCheckPartitions:              meta.ActionCheckPartition,
-	ast.AlterTableOptimizePartition:            meta.ActionOptimizePartition,
-	ast.AlterTableRepairPartition:              meta.ActionRepairPartition,
-	ast.AlterTableDiscardPartitionTablespace:   meta.ActionDiscardPartitionTablespace,
-	ast.AlterTableImportPartitionTablespace:    meta.ActionImportPartitionTablespace,
+	ast.AlterTableDropPrimaryKey:             meta.ActionDropPrimaryKey,
+	ast.AlterTableAddPartitions:              meta.ActionAddPartition,
+	ast.AlterTableDropPartition:              meta.ActionDropPartition,
+	ast.AlterTableCoalescePartitions:         meta.ActionCoalescePartition,
+	ast.AlterTableReorganizePartition:        meta.ActionReorganizePartition,
+	ast.AlterTableTruncatePartition:          meta.ActionTruncatePartition,
+	ast.AlterTableRebuildPartition:           meta.ActionRebuildPartition,
+	ast.AlterTableRemovePartitioning:         meta.ActionRemovePartitioning,
+	ast.AlterTablePartition:                  meta.ActionPartitionBy,
+	ast.AlterTableExchangePartition:          meta.ActionExchangePartition,
+	ast.AlterTableForce:                      meta.ActionForceRebuild,
+	ast.AlterTableCheckPartitions:            meta.ActionCheckPartition,
+	ast.AlterTableOptimizePartition:          meta.ActionOptimizePartition,
+	ast.AlterTableRepairPartition:            meta.ActionRepairPartition,
+	ast.AlterTableDiscardPartitionTablespace: meta.ActionDiscardPartitionTablespace,
+	ast.AlterTableImportPartitionTablespace:  meta.ActionImportPartitionTablespace,
 }
 
 // complexSpecHandlers はハンドラ関数が必要なケースのマッピング。

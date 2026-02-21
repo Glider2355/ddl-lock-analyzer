@@ -152,9 +152,9 @@ func TestIsHashOrKeyPartition(t *testing.T) {
 
 func TestHasFulltextIndex(t *testing.T) {
 	tests := []struct {
-		name    string
-		tm      *meta.TableMeta
-		want    bool
+		name string
+		tm   *meta.TableMeta
+		want bool
 	}{
 		{
 			"FULLTEXTあり",

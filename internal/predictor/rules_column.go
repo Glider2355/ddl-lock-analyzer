@@ -259,4 +259,3 @@ func columnRules() []PredictionRule {
 		},
 	}
 }
-

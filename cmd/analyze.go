@@ -61,7 +61,7 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	if db != nil {
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 	}
 
 	// レポートを構築
@@ -79,21 +79,20 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		if schema == "" {
 			schema = flagDatabase
 		}
-		tableMeta, err := collector.GetTableMeta(schema, op.Table)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to get table metadata for %s.%s: %v\n", schema, op.Table, err)
+		tableMeta, metaErr := collector.GetTableMeta(schema, op.Table)
+		if metaErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to get table metadata for %s.%s: %v\n", schema, op.Table, metaErr)
 		}
 
 		// ロック動作を予測
 		predictions := pred.PredictAll(op, tableMeta)
 
 		// FK依存関係を解決
-		var fkGraph *fkresolver.FKGraph
 		fkProvider := &collectorAdapter{collector: collector}
 		resolver := fkresolver.NewResolver(fkProvider, 5, true)
-		fkGraph, err = resolver.Resolve(schema, op.Table, op.Actions)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to resolve FK dependencies for %s.%s: %v\n", schema, op.Table, err)
+		fkGraph, fkErr := resolver.Resolve(schema, op.Table, op.Actions)
+		if fkErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to resolve FK dependencies for %s.%s: %v\n", schema, op.Table, fkErr)
 		}
 
 		analysis := reporter.AnalysisResult{
@@ -143,14 +142,14 @@ func initCollector() (meta.Collector, *sql.DB, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to MySQL: %w", err)
 	}
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("failed to ping MySQL: %w", err)
+	if pingErr := db.Ping(); pingErr != nil {
+		_ = db.Close()
+		return nil, nil, fmt.Errorf("failed to ping MySQL: %w", pingErr)
 	}
 
 	collector, err := meta.NewDBCollector(db, flagDatabase)
 	if err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, nil, err
 	}
 	return collector, db, nil
