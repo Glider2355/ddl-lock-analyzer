@@ -6,7 +6,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// Prediction represents the predicted lock behavior for a single ALTER action.
+// Prediction は単一のALTERアクションに対する予測されたロック動作を表す。
 type Prediction struct {
 	ActionType   meta.AlterActionType `json:"action_type"`
 	Description  string               `json:"description"`
@@ -19,19 +19,19 @@ type Prediction struct {
 	Warnings     []string             `json:"warnings,omitempty"`
 }
 
-// Predictor predicts DDL lock behavior based on rules.
+// Predictor はルールに基づいてDDLロック動作を予測する。
 type Predictor struct {
 	rules []PredictionRule
 }
 
-// New creates a new Predictor with default rules.
+// New はデフォルトルールで新しい Predictor を作成する。
 func New() *Predictor {
 	return &Predictor{rules: defaultRules()}
 }
 
-// Predict predicts the lock behavior for a given ALTER action.
+// Predict は指定されたALTERアクションのロック動作を予測する。
 func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) Prediction {
-	// Non-InnoDB: everything is COPY/EXCLUSIVE
+	// 非InnoDB: すべて COPY/EXCLUSIVE になる
 	if tableMeta != nil && !strings.EqualFold(tableMeta.Engine, "InnoDB") && tableMeta.Engine != "" {
 		return Prediction{
 			ActionType:   action.Type,
@@ -66,7 +66,7 @@ func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) 
 		return pred
 	}
 
-	// Fallback: unknown operation defaults to COPY/EXCLUSIVE for safety
+	// フォールバック: 不明な操作は安全のため COPY/EXCLUSIVE をデフォルトとする
 	return Prediction{
 		ActionType:   action.Type,
 		Description:  string(action.Type) + " (unknown)",
@@ -79,7 +79,7 @@ func (p *Predictor) Predict(action meta.AlterAction, tableMeta *meta.TableMeta) 
 	}
 }
 
-// PredictAll predicts lock behavior for all actions in an ALTER operation.
+// PredictAll はALTER操作内の全アクションについてロック動作を予測する。
 func (p *Predictor) PredictAll(op meta.AlterOperation, tableMeta *meta.TableMeta) []Prediction {
 	predictions := make([]Prediction, 0, len(op.Actions))
 	for _, action := range op.Actions {
@@ -95,7 +95,7 @@ func calculateRisk(algorithm meta.Algorithm, lock meta.LockLevel, rebuild bool) 
 	if algorithm == meta.AlgorithmInstant {
 		return meta.RiskLow
 	}
-	// INPLACE
+	// INPLACE の場合
 	if rebuild {
 		return meta.RiskHigh
 	}

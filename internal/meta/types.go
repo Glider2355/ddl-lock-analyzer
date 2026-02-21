@@ -1,6 +1,6 @@
 package meta
 
-// Algorithm represents the DDL execution algorithm.
+// Algorithm はDDL実行アルゴリズムを表す。
 type Algorithm string
 
 const (
@@ -9,7 +9,7 @@ const (
 	AlgorithmCopy    Algorithm = "COPY"
 )
 
-// LockLevel represents the lock level during DDL execution.
+// LockLevel はDDL実行中のロックレベルを表す。
 type LockLevel string
 
 const (
@@ -18,7 +18,7 @@ const (
 	LockExclusive LockLevel = "EXCLUSIVE"
 )
 
-// RiskLevel represents the risk level of a DDL operation.
+// RiskLevel はDDL操作のリスクレベルを表す。
 type RiskLevel string
 
 const (
@@ -28,7 +28,7 @@ const (
 	RiskCritical RiskLevel = "CRITICAL"
 )
 
-// TableMeta holds metadata about a MySQL table.
+// TableMeta はMySQLテーブルのメタデータを保持する。
 type TableMeta struct {
 	Schema       string           `json:"schema"`
 	Table        string           `json:"table"`
@@ -43,7 +43,7 @@ type TableMeta struct {
 	MySQLVersion string           `json:"mysql_version"`
 }
 
-// ColumnMeta holds metadata about a table column.
+// ColumnMeta はテーブルカラムのメタデータを保持する。
 type ColumnMeta struct {
 	Name         string `json:"name"`
 	OrdinalPos   int    `json:"ordinal_position"`
@@ -57,7 +57,7 @@ type ColumnMeta struct {
 	Collation    string `json:"collation"`
 }
 
-// IndexMeta holds metadata about an index.
+// IndexMeta はインデックスのメタデータを保持する。
 type IndexMeta struct {
 	Name      string   `json:"name"`
 	Columns   []string `json:"columns"`
@@ -66,7 +66,7 @@ type IndexMeta struct {
 	IndexType string   `json:"index_type"`
 }
 
-// ForeignKeyMeta holds metadata about a foreign key constraint.
+// ForeignKeyMeta は外部キー制約のメタデータを保持する。
 type ForeignKeyMeta struct {
 	ConstraintName    string   `json:"constraint_name"`
 	SourceSchema      string   `json:"source_schema"`
@@ -79,7 +79,7 @@ type ForeignKeyMeta struct {
 	OnUpdate          string   `json:"on_update"`
 }
 
-// AlterActionType represents the type of ALTER TABLE operation.
+// AlterActionType はALTER TABLE操作の種類を表す。
 type AlterActionType string
 
 const (
@@ -107,7 +107,7 @@ const (
 	ActionDropPartition    AlterActionType = "DROP_PARTITION"
 )
 
-// ActionDetail holds detailed information about an ALTER operation.
+// ActionDetail はALTER操作の詳細情報を保持する。
 type ActionDetail struct {
 	ColumnName     string   `json:"column_name,omitempty"`
 	OldColumnName  string   `json:"old_column_name,omitempty"`
@@ -124,18 +124,18 @@ type ActionDetail struct {
 	Engine         string   `json:"engine,omitempty"`
 	Charset        string   `json:"charset,omitempty"`
 	RowFormat      string   `json:"row_format,omitempty"`
-	// FK detail
+	// FK詳細
 	RefTable   string   `json:"ref_table,omitempty"`
 	RefColumns []string `json:"ref_columns,omitempty"`
 }
 
-// AlterAction represents a single ALTER TABLE action.
+// AlterAction は単一のALTER TABLEアクションを表す。
 type AlterAction struct {
 	Type   AlterActionType `json:"type"`
 	Detail ActionDetail    `json:"detail"`
 }
 
-// AlterOperation represents a parsed ALTER TABLE statement.
+// AlterOperation はパースされたALTER TABLE文を表す。
 type AlterOperation struct {
 	Table   string        `json:"table"`
 	Schema  string        `json:"schema"`

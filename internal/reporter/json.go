@@ -7,10 +7,10 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// JSONReporter outputs results in JSON format.
+// JSONReporter はJSON形式で結果を出力する。
 type JSONReporter struct{}
 
-// NewJSONReporter creates a new JSONReporter.
+// NewJSONReporter は新しい JSONReporter を作成する。
 func NewJSONReporter() *JSONReporter {
 	return &JSONReporter{}
 }
@@ -55,7 +55,7 @@ type jsonFKRelation struct {
 	Depth             int                    `json:"depth"`
 }
 
-// Render renders the report as JSON.
+// Render はレポートをJSONとしてレンダリングする。
 func (r *JSONReporter) Render(report *Report) (string, error) {
 	output := jsonOutput{}
 

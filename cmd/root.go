@@ -10,7 +10,7 @@ var rootCmd = &cobra.Command{
 	Long:  "ddl-lock-analyzer analyzes ALTER TABLE statements and predicts ALGORITHM, LOCK level, table rebuild, FK propagation, and estimated duration.",
 }
 
-// Execute runs the root command.
+// Execute はルートコマンドを実行する。
 func Execute() error {
 	return rootCmd.Execute()
 }

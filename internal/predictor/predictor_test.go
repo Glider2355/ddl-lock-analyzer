@@ -9,6 +9,7 @@ import (
 func boolPtr(b bool) *bool { return &b }
 
 func TestPredictAddColumnTail(t *testing.T) {
+	// 末尾へのカラム追加はINSTANT/NONEになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -20,17 +21,18 @@ func TestPredictAddColumnTail(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInstant {
-		t.Errorf("expected INSTANT, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
 	}
 	if pred.Lock != meta.LockNone {
-		t.Errorf("expected NONE, got %s", pred.Lock)
+		t.Errorf("ロックがNONEであること: got %s", pred.Lock)
 	}
 	if pred.RiskLevel != meta.RiskLow {
-		t.Errorf("expected LOW, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがLOWであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictAddColumnFirst(t *testing.T) {
+	// FIRST位置へのカラム追加はINSTANTになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -43,11 +45,12 @@ func TestPredictAddColumnFirst(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInstant {
-		t.Errorf("expected INSTANT, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
 	}
 }
 
 func TestPredictAddColumnNotNull(t *testing.T) {
+	// NOT NULLカラム追加はINPLACEでテーブル再構築が必要なことを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -59,14 +62,15 @@ func TestPredictAddColumnNotNull(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInplace {
-		t.Errorf("expected INPLACE, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
 	}
 	if !pred.TableRebuild {
-		t.Error("expected table rebuild")
+		t.Error("テーブル再構築が必要であること")
 	}
 }
 
 func TestPredictDropColumn(t *testing.T) {
+	// カラム削除はINSTANT/LOWになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type:   meta.ActionDropColumn,
@@ -74,14 +78,15 @@ func TestPredictDropColumn(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInstant {
-		t.Errorf("expected INSTANT, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskLow {
-		t.Errorf("expected LOW, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがLOWであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictModifyColumnTypeChange(t *testing.T) {
+	// 型変更を伴うMODIFY COLUMNはCOPY/EXCLUSIVE/CRITICALになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionModifyColumn,
@@ -98,17 +103,18 @@ func TestPredictModifyColumnTypeChange(t *testing.T) {
 	}
 	pred := p.Predict(action, tableMeta)
 	if pred.Algorithm != meta.AlgorithmCopy {
-		t.Errorf("expected COPY, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがCOPYであること: got %s", pred.Algorithm)
 	}
 	if pred.Lock != meta.LockExclusive {
-		t.Errorf("expected EXCLUSIVE, got %s", pred.Lock)
+		t.Errorf("ロックがEXCLUSIVEであること: got %s", pred.Lock)
 	}
 	if pred.RiskLevel != meta.RiskCritical {
-		t.Errorf("expected CRITICAL, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictModifyColumnNullToNotNull(t *testing.T) {
+	// NULL→NOT NULL変更はINPLACE/HIGHになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionModifyColumn,
@@ -126,14 +132,15 @@ func TestPredictModifyColumnNullToNotNull(t *testing.T) {
 	}
 	pred := p.Predict(action, tableMeta)
 	if pred.Algorithm != meta.AlgorithmInplace {
-		t.Errorf("expected INPLACE, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskHigh {
-		t.Errorf("expected HIGH, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがHIGHであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictAddIndex(t *testing.T) {
+	// インデックス追加はINPLACE/NONE/MEDIUMになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddIndex,
@@ -144,29 +151,31 @@ func TestPredictAddIndex(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInplace {
-		t.Errorf("expected INPLACE, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINPLACEであること: got %s", pred.Algorithm)
 	}
 	if pred.Lock != meta.LockNone {
-		t.Errorf("expected NONE, got %s", pred.Lock)
+		t.Errorf("ロックがNONEであること: got %s", pred.Lock)
 	}
 	if pred.RiskLevel != meta.RiskMedium {
-		t.Errorf("expected MEDIUM, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがMEDIUMであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictDropPrimaryKey(t *testing.T) {
+	// 主キー削除はCOPY/CRITICALになることを検証
 	p := New()
 	action := meta.AlterAction{Type: meta.ActionDropPrimaryKey}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmCopy {
-		t.Errorf("expected COPY, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがCOPYであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskCritical {
-		t.Errorf("expected CRITICAL, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictNonInnoDB(t *testing.T) {
+	// 非InnoDBエンジンはCOPY/CRITICALになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionAddColumn,
@@ -178,14 +187,15 @@ func TestPredictNonInnoDB(t *testing.T) {
 	tableMeta := &meta.TableMeta{Engine: "MyISAM"}
 	pred := p.Predict(action, tableMeta)
 	if pred.Algorithm != meta.AlgorithmCopy {
-		t.Errorf("expected COPY for non-InnoDB, got %s", pred.Algorithm)
+		t.Errorf("非InnoDBはCOPYであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskCritical {
-		t.Errorf("expected CRITICAL, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictRenameColumn(t *testing.T) {
+	// カラムリネームはINSTANT/LOWになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type: meta.ActionRenameColumn,
@@ -196,14 +206,15 @@ func TestPredictRenameColumn(t *testing.T) {
 	}
 	pred := p.Predict(action, nil)
 	if pred.Algorithm != meta.AlgorithmInstant {
-		t.Errorf("expected INSTANT, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがINSTANTであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskLow {
-		t.Errorf("expected LOW, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがLOWであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestPredictChangeEngine(t *testing.T) {
+	// エンジン変更はCOPY/CRITICALになることを検証
 	p := New()
 	action := meta.AlterAction{
 		Type:   meta.ActionChangeEngine,
@@ -212,14 +223,15 @@ func TestPredictChangeEngine(t *testing.T) {
 	tableMeta := &meta.TableMeta{Engine: "InnoDB"}
 	pred := p.Predict(action, tableMeta)
 	if pred.Algorithm != meta.AlgorithmCopy {
-		t.Errorf("expected COPY, got %s", pred.Algorithm)
+		t.Errorf("アルゴリズムがCOPYであること: got %s", pred.Algorithm)
 	}
 	if pred.RiskLevel != meta.RiskCritical {
-		t.Errorf("expected CRITICAL, got %s", pred.RiskLevel)
+		t.Errorf("リスクレベルがCRITICALであること: got %s", pred.RiskLevel)
 	}
 }
 
 func TestCollectTableInfoWithMeta(t *testing.T) {
+	// メタデータありの場合のテーブル情報収集を検証
 	tm := &meta.TableMeta{
 		RowCount:    1200000,
 		DataLength:  500 * 1024 * 1024,
@@ -230,24 +242,26 @@ func TestCollectTableInfoWithMeta(t *testing.T) {
 	}
 	info := CollectTableInfo(tm)
 	if info.RowCount != 1200000 {
-		t.Errorf("expected RowCount=1200000, got %d", info.RowCount)
+		t.Errorf("行数が1200000であること: got %d", info.RowCount)
 	}
 	if info.IndexCount != 3 {
-		t.Errorf("expected IndexCount=3, got %d", info.IndexCount)
+		t.Errorf("インデックス数が3であること: got %d", info.IndexCount)
 	}
 	if info.Label == "" {
-		t.Error("expected non-empty label")
+		t.Error("ラベルが空でないこと")
 	}
 }
 
 func TestCollectTableInfoNoMeta(t *testing.T) {
+	// メタデータなしの場合のテーブル情報収集を検証
 	info := CollectTableInfo(nil)
 	if info.Label != "N/A (no table metadata)" {
-		t.Errorf("expected no-metadata label, got %q", info.Label)
+		t.Errorf("メタデータなしラベルであること: got %q", info.Label)
 	}
 }
 
 func TestCalculateRisk(t *testing.T) {
+	// リスクレベル計算を検証
 	tests := []struct {
 		algo    meta.Algorithm
 		lock    meta.LockLevel

@@ -7,15 +7,15 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// TextReporter outputs results in human-readable text format.
+// TextReporter は人間が読みやすいテキスト形式で結果を出力する。
 type TextReporter struct{}
 
-// NewTextReporter creates a new TextReporter.
+// NewTextReporter は新しい TextReporter を作成する。
 func NewTextReporter() *TextReporter {
 	return &TextReporter{}
 }
 
-// Render renders the report as text.
+// Render はレポートをテキストとしてレンダリングする。
 func (r *TextReporter) Render(report *Report) (string, error) {
 	var sb strings.Builder
 

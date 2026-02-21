@@ -6,7 +6,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// PredictionRule defines a rule for predicting DDL lock behavior.
+// PredictionRule はDDLロック動作を予測するためのルールを定義する。
 type PredictionRule struct {
 	ActionType   meta.AlterActionType
 	Description  string
@@ -44,7 +44,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"INSTANT algorithm available (MySQL 8.0.29+)", "No table rebuild required"},
 		},
-		// ADD COLUMN (NOT NULL without DEFAULT)
+		// ADD COLUMN (NOT NULL、DEFAULTなし)
 		{
 			ActionType:  meta.ActionAddColumn,
 			Description: "ADD COLUMN (NOT NULL)",
@@ -97,13 +97,13 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"Metadata-only change"},
 		},
-		// MODIFY COLUMN (type change)
+		// MODIFY COLUMN (型変更)
 		{
 			ActionType:  meta.ActionModifyColumn,
 			Description: "MODIFY COLUMN (type change)",
 			Condition: func(a meta.AlterAction, tm *meta.TableMeta) bool {
 				if tm == nil {
-					return true // no metadata available, assume type change
+					return true // メタデータなし、型変更と仮定
 				}
 				for _, col := range tm.Columns {
 					if strings.EqualFold(col.Name, a.Detail.ColumnName) {
@@ -145,7 +145,7 @@ func defaultRules() []PredictionRule {
 			Notes:        []string{"INPLACE algorithm with table rebuild (NULL → NOT NULL conversion)"},
 			Warnings:     []string{"Table rebuild required — data validation for NOT NULL constraint"},
 		},
-		// CHANGE COLUMN (rename + type change)
+		// CHANGE COLUMN (リネーム + 型変更)
 		{
 			ActionType:   meta.ActionChangeColumn,
 			Description:  "CHANGE COLUMN",
@@ -255,7 +255,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: false,
 			Notes:        []string{"Metadata-only change"},
 		},
-		// CHANGE ENGINE (same)
+		// CHANGE ENGINE (同一エンジン)
 		{
 			ActionType:  meta.ActionChangeEngine,
 			Description: "CHANGE ENGINE (same engine)",
@@ -270,7 +270,7 @@ func defaultRules() []PredictionRule {
 			TableRebuild: true,
 			Notes:        []string{"Same engine — table rebuild for defragmentation"},
 		},
-		// CHANGE ENGINE (different)
+		// CHANGE ENGINE (異なるエンジン)
 		{
 			ActionType:  meta.ActionChangeEngine,
 			Description: "CHANGE ENGINE (different engine)",

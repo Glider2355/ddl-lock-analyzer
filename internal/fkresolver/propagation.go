@@ -6,9 +6,9 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// DetermineLockImpact determines the MDL lock impact for a related table.
+// DetermineLockImpact は関連テーブルへのMDLロック影響を判定する。
 func DetermineLockImpact(direction FKDirection, actions []meta.AlterAction, fk meta.ForeignKeyMeta) FKLockImpact {
-	// Check if the action directly involves FK columns
+	// アクションがFKカラムに直接関与するか確認
 	for _, action := range actions {
 		if action.Type == meta.ActionDropColumn {
 			if isFKColumn(action.Detail.ColumnName, fk) {
@@ -30,7 +30,7 @@ func DetermineLockImpact(direction FKDirection, actions []meta.AlterAction, fk m
 		}
 	}
 
-	// Default MDL propagation
+	// デフォルトのMDL伝播
 	switch direction {
 	case FKDirectionParent:
 		return FKLockImpact{

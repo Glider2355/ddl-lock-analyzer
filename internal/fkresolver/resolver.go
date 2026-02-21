@@ -6,19 +6,19 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// MetaProvider is an interface for looking up table metadata.
+// MetaProvider はテーブルメタデータを検索するためのインターフェース。
 type MetaProvider interface {
 	GetTableMeta(schema, table string) (*meta.TableMeta, error)
 }
 
-// Resolver resolves FK dependencies and builds the FK graph.
+// Resolver はFK依存関係を解決し、FKグラフを構築する。
 type Resolver struct {
 	provider MetaProvider
 	maxDepth int
 	fkChecks bool
 }
 
-// NewResolver creates a new FK resolver.
+// NewResolver は新しいFKリゾルバーを作成する。
 func NewResolver(provider MetaProvider, maxDepth int, fkChecks bool) *Resolver {
 	return &Resolver{
 		provider: provider,
@@ -27,7 +27,7 @@ func NewResolver(provider MetaProvider, maxDepth int, fkChecks bool) *Resolver {
 	}
 }
 
-// Resolve builds the FK dependency graph for the given table and actions.
+// Resolve は指定されたテーブルとアクションに対するFK依存関係グラフを構築する。
 func (r *Resolver) Resolve(schema, table string, actions []meta.AlterAction) (*FKGraph, error) {
 	graph := &FKGraph{
 		Root:     qualifiedName(schema, table),
@@ -40,17 +40,17 @@ func (r *Resolver) Resolve(schema, table string, actions []meta.AlterAction) (*F
 
 	tableMeta, err := r.provider.GetTableMeta(schema, table)
 	if err != nil {
-		return graph, nil // No meta available, skip FK resolution
+		return graph, nil // メタデータ取得不可、FK解決をスキップ
 	}
 
 	visited := map[string]bool{qualifiedName(schema, table): true}
 
-	// Parent direction: tables referenced by this table's FKs
+	// 親方向: このテーブルのFKが参照するテーブル
 	for _, fk := range tableMeta.ForeignKeys {
 		r.resolveParent(graph, fk, actions, 1, visited)
 	}
 
-	// Child direction: tables that reference this table
+	// 子方向: このテーブルを参照するテーブル
 	for _, fk := range tableMeta.ReferencedBy {
 		r.resolveChild(graph, fk, actions, 1, visited)
 	}
@@ -84,7 +84,7 @@ func (r *Resolver) resolveParent(graph *FKGraph, fk meta.ForeignKeyMeta, actions
 		return
 	}
 
-	// Recurse: find parent's own FK parents
+	// 再帰: 親テーブル自身のFK親を検索
 	parentMeta, err := r.provider.GetTableMeta(fk.ReferencedSchema, fk.ReferencedTable)
 	if err != nil {
 		return
@@ -120,7 +120,7 @@ func (r *Resolver) resolveChild(graph *FKGraph, fk meta.ForeignKeyMeta, actions 
 		return
 	}
 
-	// Recurse: find child's own FK children
+	// 再帰: 子テーブル自身のFK子を検索
 	childMeta, err := r.provider.GetTableMeta(fk.SourceSchema, fk.SourceTable)
 	if err != nil {
 		return

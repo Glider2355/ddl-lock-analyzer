@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version is set at build time via ldflags.
+// Version はビルド時に ldflags で設定される。
 var Version = "dev"
 
 var versionCmd = &cobra.Command{

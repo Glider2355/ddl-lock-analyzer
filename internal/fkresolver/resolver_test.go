@@ -7,7 +7,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// mockProvider implements MetaProvider for testing.
+// mockProvider はテスト用の MetaProvider 実装。
 type mockProvider struct {
 	tables map[string]*meta.TableMeta
 }
@@ -20,10 +20,11 @@ func (m *mockProvider) GetTableMeta(schema, table string) (*meta.TableMeta, erro
 	if tm, ok := m.tables[table]; ok {
 		return tm, nil
 	}
-	return nil, fmt.Errorf("table not found: %s", key)
+	return nil, fmt.Errorf("テーブルが見つかりません: %s", key)
 }
 
 func TestResolveNoFK(t *testing.T) {
+	// FK関係なしの場合、影響テーブル数が0であることを検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.users": {Schema: "mydb", Table: "users", Engine: "InnoDB"},
@@ -35,11 +36,12 @@ func TestResolveNoFK(t *testing.T) {
 		t.Fatal(err)
 	}
 	if graph.TotalAffectedTables() != 0 {
-		t.Errorf("expected 0 affected tables, got %d", graph.TotalAffectedTables())
+		t.Errorf("影響テーブル数が0であること: got %d", graph.TotalAffectedTables())
 	}
 }
 
 func TestResolveParentFK(t *testing.T) {
+	// 親方向のFK解決を検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.orders": {
@@ -66,17 +68,18 @@ func TestResolveParentFK(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(graph.Parents) != 1 {
-		t.Fatalf("expected 1 parent, got %d", len(graph.Parents))
+		t.Fatalf("親テーブル数が1であること: got %d", len(graph.Parents))
 	}
 	if graph.Parents[0].Table != "mydb.users" {
-		t.Errorf("expected parent mydb.users, got %s", graph.Parents[0].Table)
+		t.Errorf("親テーブルがmydb.usersであること: got %s", graph.Parents[0].Table)
 	}
 	if graph.Parents[0].Direction != FKDirectionParent {
-		t.Errorf("expected PARENT direction, got %s", graph.Parents[0].Direction)
+		t.Errorf("方向がPARENTであること: got %s", graph.Parents[0].Direction)
 	}
 }
 
 func TestResolveChildFK(t *testing.T) {
+	// 子方向のFK解決を検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.users": {
@@ -103,14 +106,15 @@ func TestResolveChildFK(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(graph.Children) != 1 {
-		t.Fatalf("expected 1 child, got %d", len(graph.Children))
+		t.Fatalf("子テーブル数が1であること: got %d", len(graph.Children))
 	}
 	if graph.Children[0].Table != "mydb.orders" {
-		t.Errorf("expected child mydb.orders, got %s", graph.Children[0].Table)
+		t.Errorf("子テーブルがmydb.ordersであること: got %s", graph.Children[0].Table)
 	}
 }
 
 func TestResolveCircularReference(t *testing.T) {
+	// 循環参照の検出を検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.a": {
@@ -149,11 +153,12 @@ func TestResolveCircularReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(graph.Warnings) == 0 {
-		t.Error("expected circular reference warning")
+		t.Error("循環参照の警告があること")
 	}
 }
 
 func TestResolveFKChecksOff(t *testing.T) {
+	// foreign_key_checks=OFFの場合、FK解決がスキップされることを検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.orders": {
@@ -178,11 +183,12 @@ func TestResolveFKChecksOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	if graph.TotalAffectedTables() != 0 {
-		t.Errorf("expected 0 affected tables with fk_checks=OFF, got %d", graph.TotalAffectedTables())
+		t.Errorf("fk_checks=OFFで影響テーブル数が0であること: got %d", graph.TotalAffectedTables())
 	}
 }
 
 func TestResolveDeepFK(t *testing.T) {
+	// 深いFK依存関係の解決を検証
 	provider := &mockProvider{
 		tables: map[string]*meta.TableMeta{
 			"mydb.orders": {
@@ -224,17 +230,18 @@ func TestResolveDeepFK(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(graph.Children) != 2 {
-		t.Fatalf("expected 2 children (depth 1 + 2), got %d", len(graph.Children))
+		t.Fatalf("子テーブル数が2（深さ1+2）であること: got %d", len(graph.Children))
 	}
 	if graph.Children[0].Depth != 1 {
-		t.Errorf("expected depth 1, got %d", graph.Children[0].Depth)
+		t.Errorf("深さが1であること: got %d", graph.Children[0].Depth)
 	}
 	if graph.Children[1].Depth != 2 {
-		t.Errorf("expected depth 2, got %d", graph.Children[1].Depth)
+		t.Errorf("深さが2であること: got %d", graph.Children[1].Depth)
 	}
 }
 
 func TestDropFKColumnImpact(t *testing.T) {
+	// FKカラムのDROP COLUMNがEXCLUSIVEロックになることを検証
 	fk := meta.ForeignKeyMeta{
 		SourceColumns:     []string{"user_id"},
 		ReferencedColumns: []string{"id"},
@@ -247,6 +254,6 @@ func TestDropFKColumnImpact(t *testing.T) {
 	}}
 	impact := DetermineLockImpact(FKDirectionParent, actions, fk)
 	if impact.LockLevel != meta.LockExclusive {
-		t.Errorf("expected EXCLUSIVE for FK column drop, got %s", impact.LockLevel)
+		t.Errorf("FKカラム削除でEXCLUSIVEであること: got %s", impact.LockLevel)
 	}
 }

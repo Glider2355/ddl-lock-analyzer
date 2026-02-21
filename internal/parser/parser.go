@@ -12,7 +12,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// Parse parses one or more SQL statements and returns ALTER operations.
+// Parse は1つ以上のSQL文をパースし、ALTER操作のリストを返す。
 func Parse(sql string) ([]meta.AlterOperation, error) {
 	p := parser.New()
 	stmts, _, err := p.Parse(sql, "", "")
@@ -187,7 +187,7 @@ func handleAlterColumn(spec *ast.AlterTableSpec) []meta.AlterAction {
 	col := spec.NewColumns[0]
 	colName := col.Name.Name.L
 
-	// SET DEFAULT: parser stores the default expression in Options[0]
+	// SET DEFAULT: パーサーはデフォルト式を Options[0] に格納する
 	if len(col.Options) > 0 {
 		return []meta.AlterAction{{
 			Type: meta.ActionSetDefault,
@@ -196,7 +196,7 @@ func handleAlterColumn(spec *ast.AlterTableSpec) []meta.AlterAction {
 			},
 		}}
 	}
-	// DROP DEFAULT
+	// DROP DEFAULT の場合
 	return []meta.AlterAction{{
 		Type: meta.ActionDropDefault,
 		Detail: meta.ActionDetail{

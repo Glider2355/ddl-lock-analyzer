@@ -6,7 +6,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/predictor"
 )
 
-// AnalysisResult holds the complete analysis result for one ALTER statement.
+// AnalysisResult は1つのALTER文に対する完全な分析結果を保持する。
 type AnalysisResult struct {
 	Table       string                 `json:"table"`
 	SQL         string                 `json:"sql"`
@@ -15,17 +15,17 @@ type AnalysisResult struct {
 	TableMeta   *meta.TableMeta        `json:"-"`
 }
 
-// Report holds all analysis results.
+// Report は全分析結果を保持する。
 type Report struct {
 	Analyses []AnalysisResult `json:"analyses"`
 }
 
-// Reporter formats and outputs analysis results.
+// Reporter は分析結果をフォーマットして出力する。
 type Reporter interface {
 	Render(report *Report) (string, error)
 }
 
-// WorstRiskLevel returns the highest risk level from all predictions.
+// WorstRiskLevel は全予測結果から最も高いリスクレベルを返す。
 func WorstRiskLevel(predictions []predictor.Prediction) meta.RiskLevel {
 	worst := meta.RiskLow
 	for _, p := range predictions {

@@ -6,20 +6,20 @@ import (
 	"strings"
 )
 
-// Collector is the interface for retrieving table metadata.
+// Collector はテーブルメタデータを取得するためのインターフェース。
 type Collector interface {
 	GetTableMeta(schema, table string) (*TableMeta, error)
 	GetMySQLVersion() string
 }
 
-// DBCollector retrieves metadata from a live MySQL connection.
+// DBCollector はMySQL接続からメタデータを取得する。
 type DBCollector struct {
 	db           *sql.DB
 	database     string
 	mysqlVersion string
 }
 
-// NewDBCollector creates a new DBCollector.
+// NewDBCollector は新しい DBCollector を作成する。
 func NewDBCollector(db *sql.DB, database string) (*DBCollector, error) {
 	c := &DBCollector{db: db, database: database}
 	var version string
@@ -30,12 +30,12 @@ func NewDBCollector(db *sql.DB, database string) (*DBCollector, error) {
 	return c, nil
 }
 
-// GetMySQLVersion returns the MySQL version.
+// GetMySQLVersion はMySQLバージョンを返す。
 func (c *DBCollector) GetMySQLVersion() string {
 	return c.mysqlVersion
 }
 
-// GetTableMeta retrieves metadata for a specific table.
+// GetTableMeta は指定テーブルのメタデータを取得する。
 func (c *DBCollector) GetTableMeta(schema, table string) (*TableMeta, error) {
 	if schema == "" {
 		schema = c.database

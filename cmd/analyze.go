@@ -51,25 +51,25 @@ func init() {
 }
 
 func runAnalyze(_ *cobra.Command, _ []string) error {
-	// Get SQL input
+	// SQL入力を取得
 	sqlText, err := getSQLInput()
 	if err != nil {
 		return err
 	}
 
-	// Parse SQL
+	// SQLをパース
 	ops, err := parser.Parse(sqlText)
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
-	// Initialize collector
+	// コレクターを初期化
 	collector, err := initCollector()
 	if err != nil {
 		return err
 	}
 
-	// Build report
+	// レポートを構築
 	pred := predictor.New()
 	report := &reporter.Report{}
 
@@ -79,17 +79,17 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 			tableName = op.Schema + "." + op.Table
 		}
 
-		// Get table metadata
+		// テーブルメタデータを取得
 		schema := op.Schema
 		if schema == "" {
 			schema = flagDatabase
 		}
 		tableMeta, _ := collector.GetTableMeta(schema, op.Table)
 
-		// Predict lock behavior
+		// ロック動作を予測
 		predictions := pred.PredictAll(op, tableMeta)
 
-		// Resolve FK dependencies
+		// FK依存関係を解決
 		var fkGraph *fkresolver.FKGraph
 		fkProvider := &collectorAdapter{collector: collector}
 		resolver := fkresolver.NewResolver(fkProvider, flagFKDepth, flagFKChecks)
@@ -105,7 +105,7 @@ func runAnalyze(_ *cobra.Command, _ []string) error {
 		report.Analyses = append(report.Analyses, analysis)
 	}
 
-	// Render output
+	// 出力をレンダリング
 	var rep reporter.Reporter
 	switch flagFormat {
 	case "json":
@@ -156,7 +156,7 @@ func initCollector() (meta.Collector, error) {
 
 	database := flagDatabase
 	if database == "" {
-		// Extract database from DSN
+		// DSNからデータベース名を抽出
 		if err := db.QueryRow("SELECT DATABASE()").Scan(&database); err != nil {
 			return nil, fmt.Errorf("failed to get current database: %w", err)
 		}
@@ -165,7 +165,7 @@ func initCollector() (meta.Collector, error) {
 	return meta.NewDBCollector(db, database)
 }
 
-// collectorAdapter adapts meta.Collector to fkresolver.MetaProvider.
+// collectorAdapter は meta.Collector を fkresolver.MetaProvider に適合させるアダプター。
 type collectorAdapter struct {
 	collector meta.Collector
 }

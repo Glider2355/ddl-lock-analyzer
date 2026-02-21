@@ -6,7 +6,7 @@ import (
 	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
-// TableInfo holds raw table metrics for DBA decision-making.
+// TableInfo はDBA判断用のテーブルメトリクスを保持する。
 type TableInfo struct {
 	RowCount   int64  `json:"row_count"`
 	DataSize   int64  `json:"data_size_bytes"`
@@ -15,7 +15,7 @@ type TableInfo struct {
 	Label      string `json:"-"`
 }
 
-// CollectTableInfo extracts raw table metrics from metadata.
+// CollectTableInfo はメタデータからテーブルメトリクスを抽出する。
 func CollectTableInfo(tableMeta *meta.TableMeta) TableInfo {
 	if tableMeta == nil {
 		return TableInfo{Label: "N/A (no table metadata)"}

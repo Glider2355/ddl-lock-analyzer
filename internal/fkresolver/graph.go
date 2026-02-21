@@ -2,7 +2,7 @@ package fkresolver
 
 import "github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 
-// FKDirection represents the direction of a foreign key relationship.
+// FKDirection は外部キー関係の方向を表す。
 type FKDirection string
 
 const (
@@ -10,14 +10,14 @@ const (
 	FKDirectionChild  FKDirection = "CHILD"
 )
 
-// FKLockImpact describes the lock impact on a related table.
+// FKLockImpact は関連テーブルへのロック影響を記述する。
 type FKLockImpact struct {
 	MetadataLock bool           `json:"metadata_lock"`
 	LockLevel    meta.LockLevel `json:"lock_level"`
 	Reason       string         `json:"reason"`
 }
 
-// FKRelation represents a foreign key relationship in the dependency graph.
+// FKRelation は依存関係グラフ内の外部キー関係を表す。
 type FKRelation struct {
 	Table      string              `json:"table"`
 	Constraint meta.ForeignKeyMeta `json:"constraint"`
@@ -26,7 +26,7 @@ type FKRelation struct {
 	LockImpact FKLockImpact        `json:"lock_impact"`
 }
 
-// FKGraph represents the foreign key dependency graph for an ALTER target table.
+// FKGraph はALTER対象テーブルの外部キー依存関係グラフを表す。
 type FKGraph struct {
 	Root     string       `json:"root"`
 	Parents  []FKRelation `json:"parents,omitempty"`
@@ -35,12 +35,12 @@ type FKGraph struct {
 	Warnings []string     `json:"warnings,omitempty"`
 }
 
-// TotalAffectedTables returns the total number of tables affected by FK propagation.
+// TotalAffectedTables はFK伝播により影響を受けるテーブルの総数を返す。
 func (g *FKGraph) TotalAffectedTables() int {
 	return len(g.Parents) + len(g.Children)
 }
 
-// AllRelations returns all FK relations (parents + children).
+// AllRelations は全FK関係（親+子）を返す。
 func (g *FKGraph) AllRelations() []FKRelation {
 	all := make([]FKRelation, 0, len(g.Parents)+len(g.Children))
 	all = append(all, g.Parents...)
