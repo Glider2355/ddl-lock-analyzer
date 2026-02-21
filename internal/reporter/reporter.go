@@ -1,9 +1,9 @@
 package reporter
 
 import (
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/fkresolver"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/predictor"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/fkresolver"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/predictor"
 )
 
 // AnalysisResult holds the complete analysis result for one ALTER statement.

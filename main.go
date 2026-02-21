@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/cmd"
+	"github.com/Glider2355/ddl-lock-analyzer/cmd"
 )
 
 func main() {

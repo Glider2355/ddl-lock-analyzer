@@ -3,7 +3,7 @@ package predictor
 import (
 	"strings"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 // PredictionRule defines a rule for predicting DDL lock behavior.

@@ -3,7 +3,7 @@ package predictor
 import (
 	"fmt"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 // DurationEstimate represents an estimated duration range.

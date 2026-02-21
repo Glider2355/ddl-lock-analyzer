@@ -8,11 +8,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/fkresolver"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/parser"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/predictor"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/reporter"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/fkresolver"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/parser"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/predictor"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/reporter"
 )
 
 var (

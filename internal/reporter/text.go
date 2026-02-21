@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 // TextReporter outputs results in human-readable text format.

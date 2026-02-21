@@ -9,7 +9,7 @@ import (
 	"github.com/pingcap/tidb/pkg/parser/format"
 	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 // Parse parses one or more SQL statements and returns ALTER operations.

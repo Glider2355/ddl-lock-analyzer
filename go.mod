@@ -1,4 +1,4 @@
-module github.com/muramatsuryo/ddl-lock-analyzer
+module github.com/Glider2355/ddl-lock-analyzer
 
 go 1.24
 

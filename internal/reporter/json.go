@@ -3,8 +3,8 @@ package reporter
 import (
 	"encoding/json"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/fkresolver"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/fkresolver"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 // JSONReporter outputs results in JSON format.

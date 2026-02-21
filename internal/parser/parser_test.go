@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 func TestParseAddColumn(t *testing.T) {

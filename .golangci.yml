@@ -37,7 +37,7 @@ linters-settings:
 formatters-settings:
   goimports:
     local-prefixes:
-      - github.com/muramatsuryo/ddl-lock-analyzer
+      - github.com/Glider2355/ddl-lock-analyzer
 
 issues:
   exclude-rules:

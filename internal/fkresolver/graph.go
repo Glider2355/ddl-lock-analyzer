@@ -1,6 +1,6 @@
 package fkresolver
 
-import "github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+import "github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 
 // FKDirection represents the direction of a foreign key relationship.
 type FKDirection string

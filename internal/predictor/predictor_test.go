@@ -3,7 +3,7 @@ package predictor
 import (
 	"testing"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
 )
 
 func boolPtr(b bool) *bool { return &b }

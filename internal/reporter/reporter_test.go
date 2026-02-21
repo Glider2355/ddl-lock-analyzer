@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/meta"
-	"github.com/muramatsuryo/ddl-lock-analyzer/internal/predictor"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/meta"
+	"github.com/Glider2355/ddl-lock-analyzer/internal/predictor"
 )
 
 func TestTextReporterBasic(t *testing.T) {
